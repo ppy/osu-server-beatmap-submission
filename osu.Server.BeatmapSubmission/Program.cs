@@ -57,7 +57,6 @@ namespace osu.Server.BeatmapSubmission
             }
 
             app.UseAuthorization();
-            app.UseHttpsRedirection();
             app.MapControllers();
 
             app.Run();

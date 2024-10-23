@@ -4,19 +4,13 @@ Handles submitting new and updating existing beatmaps to the [osu! website.](htt
 
 ## Running
 
-> [!IMPORTANT]
-> This web app enables HTTPS redirection by default.
-> In local testing scenarios this can cause issues with certificate trust unless the .NET environment is correctly configured.
-> 
-> See [Generate self-signed certificates with the .NET CLI](https://learn.microsoft.com/en-us/dotnet/core/additional-tools/self-signed-certificates-guide) in the .NET documentation for more information how to set this up.
-
 ### Standalone
 
 While the utility of it is limited, the project can be ran standalone.
 
 1. Run `docker compose up` from the project root directory to bring up a MySQL which uses with the `osu-web` information schema.
 2. Start the project in the `development` configuration.
-3. The application will start at https://localhost:7045.
+3. The application will start at http://localhost:5089.
     - When interacting with endpoints which require authorisation, every request will use an auto-generated user ID that increments with every request.
       If you wish to use a fixed user ID, then provide a `user_id: ${YOUR_ID_HERE}` header in the request, wherein `YOUR_ID_HERE` is the desired user ID as a number.
 
@@ -31,8 +25,8 @@ To run the project in this configuration, you must have a configured [`osu-web` 
    ```
    $ cp osu-web/storage/oauth-public.key osu-server-beatmap-submission/osu.Server.BeatmapSubmission/oauth-public.key
    ```
-3. Start the project in the `fullstack` configuration.
-4. The application will start at https://localhost:7045.
+4. Start the project in the `fullstack` configuration.
+5. The application will start at http://localhost:5089.
    - When interacting with endpoints which require authorisation, every request must include an `Authorization: Bearer <TOKEN>` header. That token must be a token issued by `osu-web` for the client key set up in step (1).
 
 ## Environment variables
