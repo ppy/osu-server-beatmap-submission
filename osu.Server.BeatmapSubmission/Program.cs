@@ -1,4 +1,8 @@
 using JetBrains.Annotations;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
+using osu.Server.BeatmapSubmission.Authentication;
 
 namespace osu.Server.BeatmapSubmission
 {
@@ -12,6 +16,12 @@ namespace osu.Server.BeatmapSubmission
             // Add services to the container.
             builder.Services.AddAuthorization();
             builder.Services.AddControllers();
+            builder.Services.AddLogging(logging =>
+            {
+                logging.ClearProviders();
+                logging.AddConsole();
+                // TODO: sentry
+            });
 
             if (builder.Environment.IsDevelopment())
             {
@@ -20,12 +30,28 @@ namespace osu.Server.BeatmapSubmission
                 // TODO: confirm this
                 builder.Services.AddEndpointsApiExplorer();
                 builder.Services.AddSwaggerGen();
+                builder.Services.AddAuthentication(config =>
+                {
+                    config.DefaultAuthenticateScheme = LocalAuthenticationHandler.AUTH_SCHEME;
+                    config.DefaultChallengeScheme = LocalAuthenticationHandler.AUTH_SCHEME;
+                }).AddScheme<AuthenticationSchemeOptions, LocalAuthenticationHandler>(LocalAuthenticationHandler.AUTH_SCHEME, null);
+            }
+            else
+            {
+                builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, OsuWebSharedJwtBearerOptions>();
+                builder.Services.AddAuthentication(config =>
+                       {
+                           config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                           config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                       })
+                       .AddJwtBearer();
             }
 
             var app = builder.Build();
 
             if (app.Environment.IsDevelopment())
             {
+                app.UseDeveloperExceptionPage();
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
