@@ -25,4 +25,9 @@
       <ProjectReference Include="..\osu.Server.BeatmapSubmission\osu.Server.BeatmapSubmission.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove="Resources\241526 Soleily - Renatus.osz" />
+      <EmbeddedResource Include="Resources\241526 Soleily - Renatus.osz" />
+    </ItemGroup>
+
 </Project>
