@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Diagnostics;
 using Dapper;
 using osu.Server.QueueProcessor;
 
@@ -11,10 +12,17 @@ namespace osu.Server.BeatmapSubmission.Tests
     {
         protected readonly HttpClient Client;
 
+        protected CancellationToken CancellationToken => cancellationSource.Token;
+        private readonly CancellationTokenSource cancellationSource;
+
         protected IntegrationTest(TestWebApplicationFactory<Program> webAppFactory)
         {
             Client = webAppFactory.CreateClient();
             reinitialiseDatabase();
+
+            cancellationSource = Debugger.IsAttached
+                ? new CancellationTokenSource()
+                : new CancellationTokenSource(20000);
         }
 
         private void reinitialiseDatabase()
@@ -28,6 +36,30 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             db.Execute("TRUNCATE TABLE `osu_beatmaps`");
             db.Execute("TRUNCATE TABLE `osu_beatmapsets`");
+        }
+
+        protected void WaitForDatabaseState<T>(string sql, T expected, CancellationToken cancellationToken, object? param = null)
+        {
+            using (var db = DatabaseAccess.GetConnection())
+            {
+                T? lastValue = default;
+
+                while (true)
+                {
+                    if (!Debugger.IsAttached)
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                            throw new TimeoutException($"Waiting for database state took too long (expected: {expected} last: {lastValue} sql: {sql})");
+                    }
+
+                    lastValue = db.QueryFirstOrDefault<T>(sql, param);
+
+                    if ((expected == null && lastValue == null) || expected?.Equals(lastValue) == true)
+                        return;
+
+                    Thread.Sleep(50);
+                }
+            }
         }
     }
 }
