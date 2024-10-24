@@ -26,6 +26,8 @@ namespace osu.Server.BeatmapSubmission.Authentication
         /// </summary>
         public const string AUTH_SCHEME = "LocalAuth";
 
+        public const string USER_ID_HEADER = "user_id";
+
         public LocalAuthenticationHandler(
             IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
             UrlEncoder encoder)
@@ -51,7 +53,7 @@ namespace osu.Server.BeatmapSubmission.Authentication
         {
             string? userIdString = null;
 
-            if (Context.Request.Headers.TryGetValue("user_id", out var userIdValue))
+            if (Context.Request.Headers.TryGetValue(USER_ID_HEADER, out var userIdValue))
                 userIdString = userIdValue;
 
             userIdString ??= Interlocked.Increment(ref userIDCounter).ToString();

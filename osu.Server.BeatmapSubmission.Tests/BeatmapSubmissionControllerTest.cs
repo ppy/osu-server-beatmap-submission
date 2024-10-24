@@ -1,9 +1,12 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Net.Http.Json;
 using Dapper;
 using osu.Framework.Utils;
+using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models;
+using osu.Server.BeatmapSubmission.Models.API.Requests;
 using osu.Server.BeatmapSubmission.Tests.Resources;
 using osu.Server.QueueProcessor;
 
@@ -17,7 +20,30 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
-        public async Task BeatmapSubmits()
+        public async Task TestIdRetrievalForNewBeatmapSet()
+        {
+            using var db = DatabaseAccess.GetConnection();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new CreateBeatmapSetRequest { BeatmapCount = 15 });
+            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "2");
+
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmapsets`", 1, CancellationToken);
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps`", 15, CancellationToken);
+
+            var beatmapset = await db.QuerySingleAsync<osu_beatmapset>("SELECT * FROM `osu_beatmapsets`");
+            Assert.Equal(2u, beatmapset.user_id);
+            Assert.Equal("test", beatmapset.creator);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = @beatmapSetId", 15, CancellationToken, new { beatmapSetId = beatmapset.beatmapset_id });
+        }
+
+        [Fact]
+        public async Task TestFullBeatmapSubmission()
         {
             using var db = DatabaseAccess.GetConnection();
 
@@ -34,7 +60,8 @@ namespace osu.Server.BeatmapSubmission.Tests
             content.Add(new StreamContent(stream), "beatmapArchive", filename);
             request.Content = content;
 
-            await Client.SendAsync(request);
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
 
             WaitForDatabaseState(@"SELECT `title` FROM `osu_beatmapsets` WHERE `beatmapset_id` = 241526", "Renatus", CancellationToken);
 

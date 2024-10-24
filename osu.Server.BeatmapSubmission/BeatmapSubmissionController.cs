@@ -11,7 +11,10 @@ using osu.Game.IO;
 using osu.Game.IO.Archives;
 using osu.Game.Rulesets.Objects.Types;
 using osu.Game.Storyboards;
+using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models;
+using osu.Server.BeatmapSubmission.Models.API.Requests;
+using osu.Server.BeatmapSubmission.Models.API.Responses;
 using osu.Server.QueueProcessor;
 
 namespace osu.Server.BeatmapSubmission
@@ -19,8 +22,72 @@ namespace osu.Server.BeatmapSubmission
     public class BeatmapSubmissionController : Controller
     {
         [HttpPut]
+        [Route("beatmapsets")]
+        [Consumes("application/json")]
+        public async Task<CreateBeatmapSetResponse> CreateBeatmapSetAsync([FromBody] CreateBeatmapSetRequest request)
+        {
+            // TODO: do all of the due diligence checks
+
+            using var db = DatabaseAccess.GetConnection();
+            using var transaction = await db.BeginTransactionAsync();
+
+            string username = await db.QuerySingleAsync<string>(@"SELECT `username` FROM `phpbb_users` WHERE `user_id` = @userId",
+                new
+                {
+                    userId = User.GetUserId(),
+                },
+                transaction);
+
+            uint beatmapSetId = await db.QuerySingleAsync<uint>(
+                """
+                INSERT INTO `osu_beatmapsets`
+                    (`user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`)
+                VALUES
+                    (@userId, @creator, -1, 0, -1, CURRENT_TIMESTAMP);
+                    
+                SELECT LAST_INSERT_ID();
+                """,
+                new
+                {
+                    userId = User.GetUserId(),
+                    creator = username,
+                },
+                transaction);
+
+            var beatmapIds = new List<uint>((int)request.BeatmapCount);
+
+            for (int i = 0; i < request.BeatmapCount; ++i)
+            {
+                uint beatmapId = await db.QuerySingleAsync<uint>(
+                    """
+                    INSERT INTO `osu_beatmaps`
+                        (`user_id`, `beatmapset_id`, `approved`)
+                    VALUES
+                        (@userId, @beatmapSetId, -1);
+                        
+                    SELECT LAST_INSERT_ID();
+                    """,
+                    new
+                    {
+                        userId = User.GetUserId(),
+                        beatmapSetId = beatmapSetId,
+                    },
+                    transaction);
+                beatmapIds.Add(beatmapId);
+            }
+
+            await transaction.CommitAsync();
+
+            return new CreateBeatmapSetResponse
+            {
+                BeatmapSetId = beatmapSetId,
+                BeatmapIds = beatmapIds
+            };
+        }
+
+        [HttpPut]
         [Route("beatmapsets/{beatmapSetId}")]
-        public async Task PutBeatmapSetAsync(
+        public async Task ReplaceBeatmapSetAsync(
             [FromRoute] uint beatmapSetId,
             // TODO: this won't fly on production, biggest existing beatmap archives exceed buffering limits.
             // see: https://learn.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads?view=aspnetcore-8.0#small-and-large-files
