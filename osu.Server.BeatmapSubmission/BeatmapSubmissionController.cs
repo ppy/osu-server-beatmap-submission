@@ -24,6 +24,7 @@ namespace osu.Server.BeatmapSubmission
         [HttpPut]
         [Route("beatmapsets")]
         [Consumes("application/json")]
+        [Produces("application/json")]
         public async Task<CreateBeatmapSetResponse> CreateBeatmapSetAsync([FromBody] CreateBeatmapSetRequest request)
         {
             // TODO: do all of the due diligence checks
