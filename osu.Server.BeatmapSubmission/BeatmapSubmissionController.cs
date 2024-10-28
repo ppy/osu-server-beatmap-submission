@@ -120,7 +120,7 @@ namespace osu.Server.BeatmapSubmission
                         `last_update` = CURRENT_TIMESTAMP,
                         `filename` = @filename, `checksum` = @checksum, `version` = @version,
                         `diff_drain` = @diff_drain, `diff_size` = @diff_size, `diff_overall` = @diff_overall, `diff_approach` = @diff_approach,
-                        `total_length` = @total_length, `hit_length` = @hit_length,
+                        `total_length` = @total_length, `hit_length` = @hit_length, `bpm` = @bpm,
                         `playcount` = 0, `passcount` = 0,
                         `countTotal` = @countTotal, `countNormal` = @countNormal, `countSlider` = @countSlider, `countSpinner` = @countSpinner,
                         `playmode` = @playmode
@@ -135,7 +135,7 @@ namespace osu.Server.BeatmapSubmission
                 UPDATE `osu_beatmapsets`
                 SET
                     `artist` = @artist, `artist_unicode` = @artist_unicode, `title` = @title, `title_unicode` = @title_unicode,
-                    `source` = @source, `creator` = @creator, `tags` = @tags, `video` = @video, `storyboard` = @storyboard,
+                    `source` = @source, `tags` = @tags, `video` = @video, `storyboard` = @storyboard,
                     `storyboard_hash` = @storyboard_hash, `bpm` = @bpm, `filename` = @filename, `displaytitle` = @displaytitle,
                     `body_hash` = NULL, `header_hash` = NULL, `osz2_hash` = NULL, `active` = 1, `last_update` = CURRENT_TIMESTAMP
                 WHERE `beatmapset_id` = @beatmapset_id
@@ -162,6 +162,8 @@ namespace osu.Server.BeatmapSubmission
 
         private static osu_beatmap constructDatabaseRowForBeatmap(BeatmapContent beatmapContent)
         {
+            float beatLength = (float)beatmapContent.Beatmap.GetMostCommonBeatLength();
+
             var result = new osu_beatmap
             {
                 beatmap_id = (uint)beatmapContent.Beatmap.BeatmapInfo.OnlineID,
@@ -172,6 +174,7 @@ namespace osu.Server.BeatmapSubmission
                 diff_size = beatmapContent.Beatmap.Difficulty.CircleSize,
                 diff_overall = beatmapContent.Beatmap.Difficulty.OverallDifficulty,
                 diff_approach = beatmapContent.Beatmap.Difficulty.ApproachRate,
+                bpm = beatLength > 0 ? 60000 / beatLength : 0,
                 total_length = (uint)(beatmapContent.Beatmap.CalculatePlayableLength() / 1000),
                 hit_length = (uint)(beatmapContent.Beatmap.CalculateDrainLength() / 1000),
                 playmode = (ushort)beatmapContent.Beatmap.BeatmapInfo.Ruleset.OnlineID,
@@ -265,6 +268,8 @@ namespace osu.Server.BeatmapSubmission
                 return distinctValues.Single();
             }
 
+            float firstBeatLength = (float)beatmaps.First().Beatmap.GetMostCommonBeatLength();
+
             var result = new osu_beatmapset
             {
                 beatmapset_id = beatmapSetId, // TODO: actually verify these
@@ -278,7 +283,7 @@ namespace osu.Server.BeatmapSubmission
                     nameof(BeatmapMetadata.TitleUnicode)),
                 source = getSingleValueFrom(beatmaps, c => c.Beatmap.Metadata.Source, nameof(BeatmapMetadata.Source)),
                 tags = getSingleValueFrom(beatmaps, c => c.Beatmap.Metadata.Tags, nameof(BeatmapMetadata.Tags)),
-                bpm = (float)(60000 / beatmaps.First().Beatmap.GetMostCommonBeatLength()),
+                bpm = firstBeatLength > 0 ? 60000 / firstBeatLength : 0,
                 filename = FormattableString.Invariant($"{beatmapSetId}.osz"),
             };
 
