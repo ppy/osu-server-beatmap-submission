@@ -1,7 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
-using Dapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using osu.Framework.Extensions;
 using osu.Game;
@@ -20,6 +20,7 @@ using osu.Server.QueueProcessor;
 
 namespace osu.Server.BeatmapSubmission
 {
+    [Authorize]
     public class BeatmapSubmissionController : Controller
     {
         private readonly IBeatmapStorage beatmapStorage;
@@ -33,65 +34,66 @@ namespace osu.Server.BeatmapSubmission
         [Route("beatmapsets")]
         [Consumes("application/json")]
         [Produces("application/json")]
-        public async Task<CreateBeatmapSetResponse> CreateBeatmapSetAsync([FromBody] CreateBeatmapSetRequest request)
+        public async Task<IActionResult> PutBeatmapSetAsync([FromBody] PutBeatmapSetRequest request)
         {
-            // TODO: do all of the due diligence checks
-
             using var db = DatabaseAccess.GetConnection();
             using var transaction = await db.BeginTransactionAsync();
 
-            string username = await db.QuerySingleAsync<string>(@"SELECT `username` FROM `phpbb_users` WHERE `user_id` = @userId",
-                new
-                {
-                    userId = User.GetUserId(),
-                },
-                transaction);
+            // TODO: check silence state (going to need to get the source to `osu.check_silenced()` function in db because i can't see into it)
+            // TODO: check restriction state (`SELECT user_warnings FROM phpbb_users WHERE user_id = $userId`)
+            // TODO: check difficulty limit (128 max)
+            // TODO: check playcount (`("SELECT sum(playcount) FROM osu_user_month_playcount WHERE user_id = $userId") < 5`)
+            // TODO: clean up user's inactive maps
+            // TODO: check remaining map quota
 
-            uint beatmapSetId = await db.QuerySingleAsync<uint>(
-                """
-                INSERT INTO `osu_beatmapsets`
-                    (`user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`)
-                VALUES
-                    (@userId, @creator, -1, 0, -1, CURRENT_TIMESTAMP);
-                    
-                SELECT LAST_INSERT_ID();
-                """,
-                new
-                {
-                    userId = User.GetUserId(),
-                    creator = username,
-                },
-                transaction);
+            uint userId = User.GetUserId();
 
-            var beatmapIds = new List<uint>((int)request.BeatmapCount);
+            uint? beatmapSetId = request.BeatmapSetID;
+            uint[] existingBeatmaps = [];
 
-            for (int i = 0; i < request.BeatmapCount; ++i)
+            if (beatmapSetId == null)
             {
-                uint beatmapId = await db.QuerySingleAsync<uint>(
-                    """
-                    INSERT INTO `osu_beatmaps`
-                        (`user_id`, `beatmapset_id`, `approved`)
-                    VALUES
-                        (@userId, @beatmapSetId, -1);
-                        
-                    SELECT LAST_INSERT_ID();
-                    """,
-                    new
-                    {
-                        userId = User.GetUserId(),
-                        beatmapSetId = beatmapSetId,
-                    },
-                    transaction);
+                if (request.BeatmapsToKeep.Any())
+                    return UnprocessableEntity("Cannot specify beatmaps to keep when creating a new beatmap set.");
+
+                string username = await db.GetUsernameAsync(userId, transaction);
+                beatmapSetId = await db.CreateBlankBeatmapSetAsync(userId, username, transaction);
+            }
+            else
+            {
+                var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId.Value, transaction);
+
+                // commentary for later:
+                // this is going to block guest difficulties a bit.
+                // guest difficulty updating is going to need to be a separate operation
+                // and client will need to keep appropriate metadata to know what it wants to do (upload new set vs update guest diff).
+                if (beatmapSet.user_id != userId)
+                    return Forbid();
+
+                existingBeatmaps = (await db.GetBeatmapIdsInSetAsync(beatmapSetId.Value, transaction)).ToArray();
+            }
+
+            if (request.BeatmapsToKeep.Except(existingBeatmaps).Any())
+                return UnprocessableEntity("One of the beatmaps to keep does not belong to the specified set.");
+
+            foreach (uint beatmapId in existingBeatmaps.Except(request.BeatmapsToKeep))
+                await db.DeleteBeatmapAsync(beatmapId, transaction);
+
+            var beatmapIds = new List<uint>((int)request.BeatmapsToCreate);
+
+            for (int i = 0; i < request.BeatmapsToCreate; ++i)
+            {
+                uint beatmapId = await db.CreateBlankBeatmapAsync(userId, beatmapSetId.Value, transaction);
                 beatmapIds.Add(beatmapId);
             }
 
             await transaction.CommitAsync();
 
-            return new CreateBeatmapSetResponse
+            return Ok(new CreateBeatmapSetResponse
             {
-                BeatmapSetId = beatmapSetId,
+                BeatmapSetId = beatmapSetId.Value,
                 BeatmapIds = beatmapIds
-            };
+            });
         }
 
         [HttpPut]
@@ -103,7 +105,6 @@ namespace osu.Server.BeatmapSubmission
             // using this for now just to get something going.
             [FromForm] IFormFile beatmapArchive)
         {
-            // TODO: do proper differential updates on a beatmap level
             // TODO: do all of the due diligence checks
 
             using var beatmapStream = beatmapArchive.OpenReadStream();
@@ -119,37 +120,11 @@ namespace osu.Server.BeatmapSubmission
             using var db = DatabaseAccess.GetConnection();
             using var transaction = await db.BeginTransactionAsync();
 
+            // TODO: ensure these actually belong to the beatmap set
             foreach (var beatmapRow in beatmapRows)
-            {
-                await db.ExecuteAsync(
-                    """
-                    UPDATE `osu_beatmaps`
-                    SET
-                        `last_update` = CURRENT_TIMESTAMP,
-                        `filename` = @filename, `checksum` = @checksum, `version` = @version,
-                        `diff_drain` = @diff_drain, `diff_size` = @diff_size, `diff_overall` = @diff_overall, `diff_approach` = @diff_approach,
-                        `total_length` = @total_length, `hit_length` = @hit_length, `bpm` = @bpm,
-                        `playcount` = 0, `passcount` = 0,
-                        `countTotal` = @countTotal, `countNormal` = @countNormal, `countSlider` = @countSlider, `countSpinner` = @countSpinner,
-                        `playmode` = @playmode
-                    WHERE `beatmap_id` = @beatmap_id AND `deleted_at` IS NULL
-                    """,
-                    beatmapRow,
-                    transaction);
-            }
+                await db.UpdateBeatmapAsync(beatmapRow, transaction);
 
-            await db.ExecuteAsync(
-                """
-                UPDATE `osu_beatmapsets`
-                SET
-                    `artist` = @artist, `artist_unicode` = @artist_unicode, `title` = @title, `title_unicode` = @title_unicode,
-                    `source` = @source, `tags` = @tags, `video` = @video, `storyboard` = @storyboard,
-                    `storyboard_hash` = @storyboard_hash, `bpm` = @bpm, `filename` = @filename, `displaytitle` = @displaytitle,
-                    `body_hash` = NULL, `header_hash` = NULL, `osz2_hash` = NULL, `active` = 1, `last_update` = CURRENT_TIMESTAMP
-                WHERE `beatmapset_id` = @beatmapset_id
-                """,
-                beatmapSetRow,
-                transaction);
+            await db.UpdateBeatmapSetAsync(beatmapSetRow, transaction);
 
             await transaction.CommitAsync();
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());

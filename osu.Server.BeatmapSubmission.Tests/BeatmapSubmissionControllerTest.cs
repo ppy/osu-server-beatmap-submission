@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Net;
 using System.Net.Http.Json;
 using Dapper;
 using Microsoft.AspNetCore.TestHost;
@@ -33,13 +34,13 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
-        public async Task TestIdRetrievalForNewBeatmapSet()
+        public async Task TestPutBeatmapSet_NewSet()
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
-            request.Content = JsonContent.Create(new CreateBeatmapSetRequest { BeatmapCount = 15 });
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest { BeatmapsToCreate = 15 });
             request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "2");
 
             var response = await Client.SendAsync(request);
@@ -56,7 +57,100 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
-        public async Task TestFullBeatmapSubmission()
+        public async Task TestPutBeatmapSet_NewSet_CannotSpecifyBeatmapsToKeep()
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapsToCreate = 15,
+                BeatmapsToKeep = [1, 2, 3],
+            });
+            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "2");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestPutBeatmapSet_ExistingSet()
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = 1000,
+                BeatmapsToCreate = 3,
+                BeatmapsToKeep = [5001, 5003, 5005],
+            });
+            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = 1000 AND `deleted_at` IS NULL", 6, CancellationToken);
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = 1000 AND `deleted_at` IS NOT NULL", 2, CancellationToken);
+            WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5001 });
+            WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5003 });
+            WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5005 });
+        }
+
+        [Fact]
+        public async Task TestPutBeatmapSet_ExistingSet_CannotModifyIfNotOwner()
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = 1000,
+                BeatmapsToCreate = 3,
+                BeatmapsToKeep = [5001, 5003, 5005],
+            });
+            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "2000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestPutBeatmapSet_CannotKeepBeatmapsThatWereNotPartOfTheSet()
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = 1000,
+                BeatmapsToCreate = 3,
+                BeatmapsToKeep = [9999],
+            });
+            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestReplaceBeatmapSet()
         {
             using var db = DatabaseAccess.GetConnection();
 
