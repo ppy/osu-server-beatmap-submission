@@ -15,12 +15,20 @@ using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.API.Requests;
 using osu.Server.BeatmapSubmission.Models.API.Responses;
+using osu.Server.BeatmapSubmission.Services;
 using osu.Server.QueueProcessor;
 
 namespace osu.Server.BeatmapSubmission
 {
     public class BeatmapSubmissionController : Controller
     {
+        private readonly IBeatmapStorage beatmapStorage;
+
+        public BeatmapSubmissionController(IBeatmapStorage beatmapStorage)
+        {
+            this.beatmapStorage = beatmapStorage;
+        }
+
         [HttpPut]
         [Route("beatmapsets")]
         [Consumes("application/json")]
@@ -144,6 +152,7 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
 
             await transaction.CommitAsync();
+            await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
         }
 
         private static IEnumerable<BeatmapContent> getBeatmapContent(ZipArchiveReader archiveReader, string[] filenames)

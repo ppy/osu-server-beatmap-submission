@@ -3,10 +3,14 @@
 
 using System.Net.Http.Json;
 using Dapper;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using osu.Framework.Utils;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.API.Requests;
+using osu.Server.BeatmapSubmission.Services;
 using osu.Server.BeatmapSubmission.Tests.Resources;
 using osu.Server.QueueProcessor;
 
@@ -14,9 +18,18 @@ namespace osu.Server.BeatmapSubmission.Tests
 {
     public class BeatmapSubmissionControllerTest : IntegrationTest
     {
+        protected new HttpClient Client { get; private set; }
+
         public BeatmapSubmissionControllerTest(TestWebApplicationFactory<Program> webAppFactory)
             : base(webAppFactory)
         {
+            Client = webAppFactory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    services.AddScoped<IBeatmapStorage>(_ => new Mock<IBeatmapStorage>().Object);
+                });
+            }).CreateClient();
         }
 
         [Fact]

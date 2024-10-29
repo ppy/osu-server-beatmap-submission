@@ -27,7 +27,8 @@
       "applicationUrl": "http://localhost:5089",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Staging",
-        "JWT_VALID_AUDIENCE": "1"
+        "JWT_VALID_AUDIENCE": "1",
+        "LOCAL_BEATMAP_STORAGE_PATH": "/home/dachb/Documents/closedsource/osu-beatmap-mirror-docker-runtime/www/beatmapCache"
       }
     }
   }

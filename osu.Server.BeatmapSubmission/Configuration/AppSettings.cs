@@ -10,5 +10,10 @@ namespace osu.Server.BeatmapSubmission.Configuration
             ?? throw new InvalidOperationException("JWT_VALID_AUDIENCE environment variable not set. "
                                                    + "The variable is used to authenticate clients using JWTs issued by osu-web. "
                                                    + "Please set the value of this variable to the client ID assigned to osu! in the osu-web target deploy.");
+
+        public static string LocalBeatmapStoragePath =>
+            Environment.GetEnvironmentVariable("LOCAL_BEATMAP_STORAGE_PATH")
+            ?? throw new InvalidOperationException("LocalBeatmapStoragePath environment variable not set. "
+                                                   + "Please set the value of this variable to the path of a directory where the submitted beatmaps should reside.");
     }
 }
