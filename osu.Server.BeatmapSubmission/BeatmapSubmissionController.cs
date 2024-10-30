@@ -79,7 +79,7 @@ namespace osu.Server.BeatmapSubmission
             foreach (uint beatmapId in existingBeatmaps.Except(request.BeatmapsToKeep))
                 await db.DeleteBeatmapAsync(beatmapId, transaction);
 
-            var beatmapIds = new List<uint>((int)request.BeatmapsToCreate);
+            var beatmapIds = new List<uint>(request.BeatmapsToKeep);
 
             for (int i = 0; i < request.BeatmapsToCreate; ++i)
             {
