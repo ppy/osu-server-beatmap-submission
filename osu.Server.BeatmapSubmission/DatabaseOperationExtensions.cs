@@ -19,9 +19,9 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
-        public static Task<osu_beatmapset> GetBeatmapSetAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        public static Task<osu_beatmapset?> GetBeatmapSetAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
         {
-            return db.QuerySingleAsync<osu_beatmapset>(@"SELECT * FROM `osu_beatmapsets` WHERE `beatmapset_id` = @beatmapSetId",
+            return db.QuerySingleOrDefaultAsync<osu_beatmapset?>(@"SELECT * FROM `osu_beatmapsets` WHERE `beatmapset_id` = @beatmapSetId",
                 new
                 {
                     beatmapSetId = beatmapSetId,

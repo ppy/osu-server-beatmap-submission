@@ -63,6 +63,9 @@ namespace osu.Server.BeatmapSubmission
             {
                 var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId.Value, transaction);
 
+                if (beatmapSet == null)
+                    return NotFound();
+
                 // commentary for later:
                 // this is going to block guest difficulties a bit.
                 // guest difficulty updating is going to need to be a separate operation
