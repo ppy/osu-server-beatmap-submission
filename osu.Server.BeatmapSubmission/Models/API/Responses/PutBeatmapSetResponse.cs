@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace osu.Server.BeatmapSubmission.Models.API.Responses
 {
-    public class CreateBeatmapSetResponse
+    public class PutBeatmapSetResponse
     {
         [JsonPropertyName("beatmapset_id")]
         public uint BeatmapSetId { get; init; }

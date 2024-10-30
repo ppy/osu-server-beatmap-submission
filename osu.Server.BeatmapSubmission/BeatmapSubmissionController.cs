@@ -89,7 +89,7 @@ namespace osu.Server.BeatmapSubmission
 
             await transaction.CommitAsync();
 
-            return Ok(new CreateBeatmapSetResponse
+            return Ok(new PutBeatmapSetResponse
             {
                 BeatmapSetId = beatmapSetId.Value,
                 BeatmapIds = beatmapIds

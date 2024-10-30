@@ -11,6 +11,7 @@ using osu.Framework.Utils;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.API.Requests;
+using osu.Server.BeatmapSubmission.Models.API.Responses;
 using osu.Server.BeatmapSubmission.Services;
 using osu.Server.BeatmapSubmission.Tests.Resources;
 using osu.Server.QueueProcessor;
@@ -54,6 +55,9 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal("test", beatmapset.creator);
 
             WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = @beatmapSetId", 15, CancellationToken, new { beatmapSetId = beatmapset.beatmapset_id });
+
+            var responseContent = await response.Content.ReadFromJsonAsync<PutBeatmapSetResponse>();
+            Assert.Equal(15, responseContent!.BeatmapIds.Count);
         }
 
         [Fact]
@@ -99,6 +103,9 @@ namespace osu.Server.BeatmapSubmission.Tests
             WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5001 });
             WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5003 });
             WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5005 });
+
+            var responseContent = await response.Content.ReadFromJsonAsync<PutBeatmapSetResponse>();
+            Assert.Equal(6, responseContent!.BeatmapIds.Count);
         }
 
         [Fact]
