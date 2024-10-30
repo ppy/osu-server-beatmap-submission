@@ -117,6 +117,9 @@ namespace osu.Server.BeatmapSubmission
 
             BeatmapContent[] beatmaps = getBeatmapContent(archiveReader, filenames).ToArray();
 
+            // TODO: FOR THE LOVE OF GOD ENSURE THE BEATMAPS HAVE THE PROPER ONLINE IDS INSIDE
+            // AND ARE NOT REUSING STUFF FROM DIFFERENT SUBMITTED SETS BECAUSE HOLY HECK
+
             osu_beatmap[] beatmapRows = beatmaps.Select(constructDatabaseRowForBeatmap).ToArray();
             var beatmapSetRow = constructDatabaseRowForBeatmapset(beatmapSetId, archiveReader, beatmaps);
 
