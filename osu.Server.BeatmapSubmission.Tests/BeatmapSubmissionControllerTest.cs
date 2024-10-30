@@ -157,6 +157,24 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestPutBeatmapSet_NonexistentSet()
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = 1000,
+                BeatmapsToCreate = 3,
+            });
+            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
         public async Task TestReplaceBeatmapSet()
         {
             using var db = DatabaseAccess.GetConnection();
