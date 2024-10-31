@@ -20,6 +20,10 @@ namespace osu.Server.BeatmapSubmission.Services
         public IEnumerable<BeatmapSetFile> ListBeatmapSetFiles(uint beatmapSetId)
         {
             string path = getPathTo(beatmapSetId);
+
+            if (!File.Exists(path))
+                return [];
+
             using var stream = File.OpenRead(path);
             using var archive = new ZipArchiveReader(stream);
 

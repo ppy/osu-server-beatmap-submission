@@ -92,7 +92,8 @@ namespace osu.Server.BeatmapSubmission
             return Ok(new PutBeatmapSetResponse
             {
                 BeatmapSetId = beatmapSetId.Value,
-                BeatmapIds = beatmapIds
+                BeatmapIds = beatmapIds,
+                Files = beatmapStorage.ListBeatmapSetFiles(beatmapSetId.Value),
             });
         }
 

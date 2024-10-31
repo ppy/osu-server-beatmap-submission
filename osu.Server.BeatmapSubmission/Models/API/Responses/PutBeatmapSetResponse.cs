@@ -12,5 +12,8 @@ namespace osu.Server.BeatmapSubmission.Models.API.Responses
 
         [JsonPropertyName("beatmap_ids")]
         public ICollection<uint> BeatmapIds { get; init; } = Array.Empty<uint>();
+
+        [JsonPropertyName("files")]
+        public IEnumerable<BeatmapSetFile> Files { get; set; } = Array.Empty<BeatmapSetFile>();
     }
 }
