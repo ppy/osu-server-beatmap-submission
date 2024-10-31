@@ -24,6 +24,8 @@ namespace osu.Server.BeatmapSubmission
                 // TODO: sentry
             });
 
+            builder.Services.AddTransient<BeatmapPackagePatcher>();
+
             switch (builder.Environment.EnvironmentName)
             {
                 case "Development":

@@ -31,6 +31,27 @@ namespace osu.Server.BeatmapSubmission.Services
             return result;
         }
 
+        public async Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory)
+        {
+            string archivePath = getPathTo(beatmapSetId);
+            using var archiveStream = File.OpenRead(archivePath);
+            using var archive = new ZipArchiveReader(archiveStream);
+
+            foreach (string sourceFilename in archive.Filenames)
+            {
+                string targetFilename = Path.Combine(targetDirectory, sourceFilename);
+                string directoryPart = Path.GetDirectoryName(targetFilename) ?? string.Empty;
+
+                // TODO: test that this logic works as it does in my head
+                if (!Directory.Exists(directoryPart))
+                    Directory.CreateDirectory(directoryPart);
+
+                using var fileStream = archive.GetStream(sourceFilename);
+                byte[] fileContent = await fileStream.ReadAllBytesToArrayAsync();
+                await File.WriteAllBytesAsync(targetFilename, fileContent);
+            }
+        }
+
         private static string getPathTo(uint beatmapSetId) => Path.Combine(AppSettings.LocalBeatmapStoragePath, beatmapSetId.ToString(CultureInfo.InvariantCulture));
     }
 }

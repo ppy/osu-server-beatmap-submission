@@ -17,10 +17,14 @@ namespace osu.Server.BeatmapSubmission
     public class BeatmapSubmissionController : Controller
     {
         private readonly IBeatmapStorage beatmapStorage;
+        private readonly BeatmapPackagePatcher patcher;
 
-        public BeatmapSubmissionController(IBeatmapStorage beatmapStorage)
+        public BeatmapSubmissionController(
+            IBeatmapStorage beatmapStorage,
+            BeatmapPackagePatcher patcher)
         {
             this.beatmapStorage = beatmapStorage;
+            this.patcher = patcher;
         }
 
         [HttpPut]
@@ -112,7 +116,7 @@ namespace osu.Server.BeatmapSubmission
 
         [HttpPut]
         [Route("beatmapsets/{beatmapSetId}")]
-        public async Task ReplaceBeatmapSetAsync(
+        public async Task<IActionResult> ReplaceBeatmapSetAsync(
             [FromRoute] uint beatmapSetId,
             // TODO: this won't fly on production, biggest existing beatmap archives exceed buffering limits.
             // see: https://learn.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads?view=aspnetcore-8.0#small-and-large-files
@@ -121,12 +125,16 @@ namespace osu.Server.BeatmapSubmission
         {
             // TODO: do all of the due diligence checks
 
+            using var db = DatabaseAccess.GetConnection();
+
+            var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId);
+            if (beatmapSet == null)
+                return NotFound();
+
             using var beatmapStream = beatmapArchive.OpenReadStream();
             using var archiveReader = new ZipArchiveReader(beatmapStream);
 
             var parseResult = BeatmapPackageParser.Parse(beatmapSetId, archiveReader);
-
-            using var db = DatabaseAccess.GetConnection();
             using var transaction = await db.BeginTransactionAsync();
 
             // TODO: ensure these actually belong to the beatmap set
@@ -136,7 +144,40 @@ namespace osu.Server.BeatmapSubmission
             await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
 
             await transaction.CommitAsync();
+            // TODO: the ACID implications on this are... interesting...
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
+            return NoContent();
+        }
+
+        [HttpPatch]
+        [Route("beatmapsets/{beatmapSetId}")]
+        public async Task<IActionResult> PatchBeatmapSetAsync(
+            [FromRoute] uint beatmapSetId,
+            [FromForm] IFormFileCollection filesChanged,
+            [FromForm] string[] filesDeleted)
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId);
+            if (beatmapSet == null)
+                return NotFound();
+
+            var beatmapStream = await patcher.PatchAsync(beatmapSetId, filesChanged, filesDeleted);
+
+            using var archiveReader = new ZipArchiveReader(beatmapStream);
+            var parseResult = BeatmapPackageParser.Parse(beatmapSetId, archiveReader);
+            using var transaction = await db.BeginTransactionAsync();
+
+            // TODO: ensure these actually belong to the beatmap set
+            foreach (var beatmapRow in parseResult.Beatmaps)
+                await db.UpdateBeatmapAsync(beatmapRow, transaction);
+
+            await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
+
+            await transaction.CommitAsync();
+            // TODO: the ACID implications on this are... interesting...
+            await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
+            return NoContent();
         }
     }
 }

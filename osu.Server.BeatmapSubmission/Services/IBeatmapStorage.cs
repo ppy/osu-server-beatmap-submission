@@ -10,5 +10,7 @@ namespace osu.Server.BeatmapSubmission.Services
         Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage);
 
         IEnumerable<BeatmapSetFile> ListBeatmapSetFiles(uint beatmapSetId);
+
+        Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory);
     }
 }
