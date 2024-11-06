@@ -138,6 +138,8 @@ namespace osu.Server.BeatmapSubmission.Services
 
         private static osu_beatmapset constructDatabaseRowForBeatmapset(uint beatmapSetId, ArchiveReader archiveReader, BeatmapContent[] beatmaps)
         {
+            // TODO: currently all exceptions thrown here will be 500s, they should be 429s
+
             if (beatmaps.Length == 0)
                 throw new InvalidOperationException("The uploaded beatmap set must have at least one difficulty.");
 
