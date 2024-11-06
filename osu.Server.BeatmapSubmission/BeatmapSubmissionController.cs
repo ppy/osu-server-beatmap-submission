@@ -97,24 +97,6 @@ namespace osu.Server.BeatmapSubmission
             });
         }
 
-        [AllowAnonymous]
-        [HttpGet]
-        [Route("beatmapsets/{beatmapSetId}")]
-        public async Task<IActionResult> ListFilesInBeatmapSetAsync(
-            [FromRoute] uint beatmapSetId)
-        {
-            using var db = DatabaseAccess.GetConnection();
-
-            var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId);
-            if (beatmapSet == null)
-                return NotFound();
-
-            return Ok(new ListFilesInBeatmapSetResponse
-            {
-                Files = beatmapStorage.ListBeatmapSetFiles(beatmapSetId),
-            });
-        }
-
         [HttpPut]
         [Route("beatmapsets/{beatmapSetId}")]
         public async Task<IActionResult> ReplaceBeatmapSetAsync(
