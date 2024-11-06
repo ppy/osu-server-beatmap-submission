@@ -2,6 +2,8 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using osu.Framework.Extensions;
+using osu.Game.Beatmaps.Formats;
+using osu.Game.IO;
 using osu.Game.IO.Archives;
 using SharpCompress.Common;
 using SharpCompress.Writers;
@@ -18,7 +20,7 @@ namespace osu.Server.BeatmapSubmission.Services
             this.beatmapStorage = beatmapStorage;
         }
 
-        public async Task<MemoryStream> PatchAsync(
+        public async Task<MemoryStream> PatchBeatmapSetAsync(
             uint beatmapSetId,
             IEnumerable<IFormFile> filesChanged,
             IEnumerable<string> filesDeleted)
@@ -48,13 +50,20 @@ namespace osu.Server.BeatmapSubmission.Services
                     File.Delete(targetFilename);
             }
 
+            var archiveStream = createOszArchive(tempDirectory);
+            Directory.Delete(tempDirectory.FullName, true);
+            return archiveStream;
+        }
+
+        private static MemoryStream createOszArchive(DirectoryInfo tempDirectory)
+        {
             var zipWriterOptions = new ZipWriterOptions(CompressionType.Deflate)
             {
                 ArchiveEncoding = ZipArchiveReader.DEFAULT_ENCODING,
             };
-            var beatmapStream = new MemoryStream();
+            var archiveStream = new MemoryStream();
 
-            using (var writer = new ZipWriter(beatmapStream, zipWriterOptions))
+            using (var writer = new ZipWriter(archiveStream, zipWriterOptions))
             {
                 foreach (string file in Directory.EnumerateFiles(tempDirectory.FullName, "*", SearchOption.AllDirectories))
                 {
@@ -63,9 +72,45 @@ namespace osu.Server.BeatmapSubmission.Services
                 }
             }
 
-            Directory.Delete(tempDirectory.FullName, true);
+            return archiveStream;
+        }
 
-            return beatmapStream;
+        public async Task<MemoryStream> PatchBeatmapAsync(
+            uint beatmapSetId,
+            uint beatmapId,
+            IFormFile beatmapContents)
+        {
+            var tempDirectory = Directory.CreateTempSubdirectory($"bss_{beatmapSetId}");
+            await beatmapStorage.ExtractBeatmapSetAsync(beatmapSetId, tempDirectory.FullName);
+
+            string? existingBeatmapFilename = null;
+
+            foreach (string file in Directory.EnumerateFiles(tempDirectory.FullName, "*.osu", SearchOption.AllDirectories))
+            {
+                using var stream = File.OpenRead(file);
+                var decoded = new LegacyBeatmapDecoder().Decode(new LineBufferedReader(stream));
+
+                if (decoded.BeatmapInfo.OnlineID == beatmapId)
+                {
+                    existingBeatmapFilename = file;
+                    break;
+                }
+            }
+
+            if (existingBeatmapFilename == null)
+                throw new InvalidOperationException("Could not find the old .osu file for the beatmap being modified!");
+
+            File.Delete(existingBeatmapFilename);
+
+            using (var file = File.OpenWrite(Path.Combine(tempDirectory.FullName, beatmapContents.FileName)))
+            {
+                using var beatmapStream = beatmapContents.OpenReadStream();
+                await beatmapStream.CopyToAsync(file);
+            }
+
+            var archiveStream = createOszArchive(tempDirectory);
+            Directory.Delete(tempDirectory.FullName, true);
+            return archiveStream;
         }
     }
 }

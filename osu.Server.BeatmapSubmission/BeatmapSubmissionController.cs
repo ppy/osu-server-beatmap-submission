@@ -3,6 +3,7 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
 using osu.Framework.Extensions;
 using osu.Game.IO.Archives;
 using osu.Server.BeatmapSubmission.Authentication;
@@ -42,6 +43,7 @@ namespace osu.Server.BeatmapSubmission
             // TODO: check playcount (`("SELECT sum(playcount) FROM osu_user_month_playcount WHERE user_id = $userId") < 5`)
             // TODO: clean up user's inactive maps
             // TODO: check remaining map quota
+            // TODO: create relevant forum threads or whatever so that people can put descriptions
 
             uint userId = User.GetUserId();
 
@@ -63,10 +65,6 @@ namespace osu.Server.BeatmapSubmission
                 if (beatmapSet == null)
                     return NotFound();
 
-                // commentary for later:
-                // this is going to block guest difficulties a bit.
-                // guest difficulty updating is going to need to be a separate operation
-                // and client will need to keep appropriate metadata to know what it wants to do (upload new set vs update guest diff).
                 if (beatmapSet.user_id != userId)
                     return Forbid();
 
@@ -114,6 +112,9 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet == null)
                 return NotFound();
 
+            if (beatmapSet.user_id != User.GetUserId())
+                return Forbid();
+
             using var beatmapStream = beatmapArchive.OpenReadStream();
             using var archiveReader = new ZipArchiveReader(beatmapStream);
 
@@ -145,8 +146,16 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet == null)
                 return NotFound();
 
-            var beatmapStream = await patcher.PatchAsync(beatmapSetId, filesChanged, filesDeleted);
+            if (beatmapSet.user_id != User.GetUserId())
+                return Forbid();
 
+            var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
+            await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
+            return NoContent();
+        }
+
+        private async Task updateBeatmapSetFromArchiveAsync(uint beatmapSetId, MemoryStream beatmapStream, MySqlConnection db)
+        {
             using var archiveReader = new ZipArchiveReader(beatmapStream);
             var parseResult = BeatmapPackageParser.Parse(beatmapSetId, archiveReader);
             using var transaction = await db.BeginTransactionAsync();
@@ -160,6 +169,28 @@ namespace osu.Server.BeatmapSubmission
             await transaction.CommitAsync();
             // TODO: the ACID implications on this are... interesting...
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
+        }
+
+        [HttpPatch]
+        [Route("beatmapsets/{beatmapSetId}/beatmaps/{beatmapId}")]
+        public async Task<IActionResult> PatchBeatmapAsGuestAsync(
+            [FromRoute] uint beatmapSetId,
+            [FromRoute] uint beatmapId,
+            [FromForm] IFormFile beatmapContents)
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            var beatmap = await db.GetBeatmapAsync(beatmapSetId, beatmapId);
+            if (beatmap == null)
+                return NotFound();
+
+            // TODO: this is probably obsolete immediately once https://github.com/ppy/osu-web/pull/11377 goes in.
+            // don't wanna get too deep into the woods on that one right now.
+            if (beatmap.user_id != User.GetUserId())
+                return Forbid();
+
+            var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmapId, beatmapContents);
+            await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db);
             return NoContent();
         }
     }

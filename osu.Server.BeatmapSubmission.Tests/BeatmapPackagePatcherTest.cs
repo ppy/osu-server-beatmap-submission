@@ -32,7 +32,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                            File.WriteAllText(Path.Combine(basePath, "third.txt"), "Third file");
                        });
 
-            var stream = await patcher.PatchAsync(1234, [], []);
+            var stream = await patcher.PatchBeatmapSetAsync(1234, [], []);
 
             using var reader = new ZipArchiveReader(stream);
 
@@ -56,7 +56,7 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var newFileStream = new MemoryStream("Fourth file"u8.ToArray());
 
-            var stream = await patcher.PatchAsync(1234,
+            var stream = await patcher.PatchBeatmapSetAsync(1234,
                 [new FormFile(newFileStream, 0, newFileStream.Length, "filesChanged", "fourth.txt")],
                 []);
 
@@ -83,7 +83,7 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var newFileStream = new MemoryStream("Third file but with changes"u8.ToArray());
 
-            var stream = await patcher.PatchAsync(1234,
+            var stream = await patcher.PatchBeatmapSetAsync(1234,
                 [new FormFile(newFileStream, 0, newFileStream.Length, "filesChanged", "third.txt")],
                 []);
 
@@ -107,7 +107,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                            File.WriteAllText(Path.Combine(basePath, "third.txt"), "Third file");
                        });
 
-            var stream = await patcher.PatchAsync(1234, [], ["first.txt", "third.txt"]);
+            var stream = await patcher.PatchBeatmapSetAsync(1234, [], ["first.txt", "third.txt"]);
 
             using var reader = new ZipArchiveReader(stream);
 
@@ -132,7 +132,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                            File.WriteAllText(Path.Combine(basePath, "subdir", "another.txt"), "Wedged in there");
                        });
 
-            var stream = await patcher.PatchAsync(1234, [], []);
+            var stream = await patcher.PatchBeatmapSetAsync(1234, [], []);
 
             using var reader = new ZipArchiveReader(stream);
 
@@ -161,7 +161,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             var firstFileStream = new MemoryStream("Another subdir"u8.ToArray());
             var secondFileStream = new MemoryStream("Two levels deep"u8.ToArray());
 
-            var stream = await patcher.PatchAsync(1234,
+            var stream = await patcher.PatchBeatmapSetAsync(1234,
                 [
                     new FormFile(firstFileStream, 0, firstFileStream.Length, "filesChanged", "subdir2/more.txt"),
                     new FormFile(secondFileStream, 0, secondFileStream.Length, "filesChanged", "subdir/another/wow.txt"),
@@ -194,7 +194,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                            File.WriteAllText(Path.Combine(basePath, "subdir", "another.txt"), "Wedged in there");
                        });
 
-            var stream = await patcher.PatchAsync(1234, [], ["subdir/another.txt"]);
+            var stream = await patcher.PatchBeatmapSetAsync(1234, [], ["subdir/another.txt"]);
 
             using var reader = new ZipArchiveReader(stream);
 
