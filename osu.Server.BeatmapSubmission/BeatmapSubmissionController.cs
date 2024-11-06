@@ -9,6 +9,7 @@ using osu.Game.IO.Archives;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models.API.Requests;
 using osu.Server.BeatmapSubmission.Models.API.Responses;
+using osu.Server.BeatmapSubmission.Models.Database;
 using osu.Server.BeatmapSubmission.Services;
 using osu.Server.QueueProcessor;
 
@@ -166,6 +167,23 @@ namespace osu.Server.BeatmapSubmission
 
             await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
 
+            foreach (var file in parseResult.Files)
+            {
+                await db.InsertBeatmapsetFileAsync(new osu_beatmapset_file
+                {
+                    beatmapset_id = file.beatmapset_id,
+                    sha2_hash = file.sha2_hash,
+                }, transaction);
+            }
+
+            uint versionId = await db.CreateBeatmapsetVersionAsync(beatmapSetId, transaction);
+
+            foreach (var file in parseResult.Files)
+            {
+                file.version_id = versionId;
+                await db.InsertBeatmapsetVersionFileAsync(file, transaction);
+            }
+
             await transaction.CommitAsync();
             // TODO: the ACID implications on this are... interesting...
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
@@ -192,6 +210,24 @@ namespace osu.Server.BeatmapSubmission
             var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmapId, beatmapContents);
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db);
             return NoContent();
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        [Route("beatmapsets/{beatmapSetId}/versions/{versionId}")]
+        public async Task<IActionResult> DownloadBeatmapVersionAsync(
+            [FromRoute] uint beatmapSetId,
+            [FromRoute] uint versionId)
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            (osu_beatmapset_version version, osu_beatmapset_version_file[] files)? versionInfo = await db.GetBeatmapsetVersionAsync(beatmapSetId, versionId);
+
+            if (versionInfo == null)
+                return NotFound();
+
+            var archiveStream = await beatmapStorage.PackageBeatmapSetFilesAsync(versionInfo.Value.files);
+            return File(archiveStream, "application/x-osu-beatmap-archive", $"{beatmapSetId}.v{versionId}.osz");
         }
     }
 }

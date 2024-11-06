@@ -13,6 +13,11 @@ namespace osu.Server.BeatmapSubmission.Services
 {
     public class BeatmapPackagePatcher
     {
+        public static readonly ZipWriterOptions DEFAULT_ZIP_WRITER_OPTIONS = new ZipWriterOptions(CompressionType.Deflate)
+        {
+            ArchiveEncoding = ZipArchiveReader.DEFAULT_ENCODING,
+        };
+
         private readonly IBeatmapStorage beatmapStorage;
 
         public BeatmapPackagePatcher(IBeatmapStorage beatmapStorage)
@@ -57,13 +62,9 @@ namespace osu.Server.BeatmapSubmission.Services
 
         private static MemoryStream createOszArchive(DirectoryInfo tempDirectory)
         {
-            var zipWriterOptions = new ZipWriterOptions(CompressionType.Deflate)
-            {
-                ArchiveEncoding = ZipArchiveReader.DEFAULT_ENCODING,
-            };
             var archiveStream = new MemoryStream();
 
-            using (var writer = new ZipWriter(archiveStream, zipWriterOptions))
+            using (var writer = new ZipWriter(archiveStream, DEFAULT_ZIP_WRITER_OPTIONS))
             {
                 foreach (string file in Directory.EnumerateFiles(tempDirectory.FullName, "*", SearchOption.AllDirectories))
                 {

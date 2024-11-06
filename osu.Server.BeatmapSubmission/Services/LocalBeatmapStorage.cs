@@ -6,20 +6,40 @@ using osu.Framework.Extensions;
 using osu.Game.IO.Archives;
 using osu.Server.BeatmapSubmission.Configuration;
 using osu.Server.BeatmapSubmission.Models.API.Responses;
+using osu.Server.BeatmapSubmission.Models.Database;
+using SharpCompress.Writers;
+using SharpCompress.Writers.Zip;
 
 namespace osu.Server.BeatmapSubmission.Services
 {
     public class LocalBeatmapStorage : IBeatmapStorage
     {
-        public Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage)
+        public async Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage)
         {
-            string path = getPathTo(beatmapSetId);
-            return File.WriteAllBytesAsync(path, beatmapPackage);
+            string path = getPathToPackage(beatmapSetId);
+            await File.WriteAllBytesAsync(path, beatmapPackage);
+
+            var stream = new MemoryStream(beatmapPackage);
+            using var archive = new ZipArchiveReader(stream);
+
+            foreach (string filename in archive.Filenames)
+            {
+                var sourceStream = archive.GetStream(filename);
+                string sha2 = sourceStream.ComputeSHA2Hash();
+                string targetPath = getPathToVersionedFile(beatmapSetId, sha2);
+                string targetDirectory = Path.GetDirectoryName(targetPath)!;
+
+                if (!Directory.Exists(targetDirectory))
+                    Directory.CreateDirectory(targetDirectory);
+
+                using var targetStream = File.OpenWrite(targetPath);
+                await sourceStream.CopyToAsync(targetStream);
+            }
         }
 
         public IEnumerable<BeatmapSetFile> ListBeatmapSetFiles(uint beatmapSetId)
         {
-            string path = getPathTo(beatmapSetId);
+            string path = getPathToPackage(beatmapSetId);
 
             if (!File.Exists(path))
                 return [];
@@ -37,7 +57,7 @@ namespace osu.Server.BeatmapSubmission.Services
 
         public async Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory)
         {
-            string archivePath = getPathTo(beatmapSetId);
+            string archivePath = getPathToPackage(beatmapSetId);
             using var archiveStream = File.OpenRead(archivePath);
             using var archive = new ZipArchiveReader(archiveStream);
 
@@ -56,6 +76,28 @@ namespace osu.Server.BeatmapSubmission.Services
             }
         }
 
-        private static string getPathTo(uint beatmapSetId) => Path.Combine(AppSettings.LocalBeatmapStoragePath, beatmapSetId.ToString(CultureInfo.InvariantCulture));
+        public Task<Stream> PackageBeatmapSetFilesAsync(IEnumerable<osu_beatmapset_version_file> files) => Task.Run<Stream>(() =>
+        {
+            var memoryStream = new MemoryStream();
+
+            using (var zipWriter = new ZipWriter(memoryStream, BeatmapPackagePatcher.DEFAULT_ZIP_WRITER_OPTIONS))
+            {
+                foreach (var file in files)
+                {
+                    string targetFilename = getPathToVersionedFile(file.beatmapset_id, BitConverter.ToString(file.sha2_hash).Replace("-", string.Empty).ToLowerInvariant());
+
+                    using var fileStream = File.OpenRead(targetFilename);
+                    zipWriter.Write(file.filename, fileStream);
+                }
+            }
+
+            memoryStream.Seek(0, SeekOrigin.Begin);
+            return memoryStream;
+        });
+
+        private static string getPathToPackage(uint beatmapSetId) => Path.Combine(AppSettings.LocalBeatmapStoragePath, beatmapSetId.ToString(CultureInfo.InvariantCulture));
+
+        private static string getPathToVersionedFile(uint beatmapSetId, string sha2)
+            => Path.Combine(AppSettings.LocalBeatmapStoragePath, FormattableString.Invariant($@"{beatmapSetId}_files"), sha2);
     }
 }

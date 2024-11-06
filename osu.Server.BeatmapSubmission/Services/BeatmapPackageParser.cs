@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Security.Cryptography;
 using osu.Framework.Extensions;
 using osu.Game;
 using osu.Game.Beatmaps;
@@ -9,7 +10,7 @@ using osu.Game.IO;
 using osu.Game.IO.Archives;
 using osu.Game.Rulesets.Objects.Types;
 using osu.Game.Storyboards;
-using osu.Server.BeatmapSubmission.Models;
+using osu.Server.BeatmapSubmission.Models.Database;
 
 namespace osu.Server.BeatmapSubmission.Services
 {
@@ -21,13 +22,25 @@ namespace osu.Server.BeatmapSubmission.Services
 
             BeatmapContent[] beatmaps = getBeatmapContent(archiveReader, filenames).ToArray();
 
+            var files = new List<osu_beatmapset_version_file>(filenames.Length);
+
+            foreach (string filename in filenames)
+            {
+                files.Add(new osu_beatmapset_version_file()
+                {
+                    beatmapset_id = beatmapSetId,
+                    sha2_hash = SHA256.HashData(archiveReader.GetStream(filename)),
+                    filename = filename,
+                });
+            }
+
             // TODO: FOR THE LOVE OF GOD ENSURE THE BEATMAPS HAVE THE PROPER ONLINE IDS INSIDE
             // AND ARE NOT REUSING STUFF FROM DIFFERENT SUBMITTED SETS BECAUSE HOLY HECK
 
             osu_beatmap[] beatmapRows = beatmaps.Select(constructDatabaseRowForBeatmap).ToArray();
             var beatmapSetRow = constructDatabaseRowForBeatmapset(beatmapSetId, archiveReader, beatmaps);
 
-            return new BeatmapPackageParseResult(beatmapSetRow, beatmapRows);
+            return new BeatmapPackageParseResult(beatmapSetRow, beatmapRows, files.ToArray());
         }
 
         private static IEnumerable<BeatmapContent> getBeatmapContent(ArchiveReader archiveReader, string[] filenames)
@@ -203,5 +216,6 @@ namespace osu.Server.BeatmapSubmission.Services
 
     public record struct BeatmapPackageParseResult(
         osu_beatmapset BeatmapSet,
-        osu_beatmap[] Beatmaps);
+        osu_beatmap[] Beatmaps,
+        osu_beatmapset_version_file[] Files);
 }

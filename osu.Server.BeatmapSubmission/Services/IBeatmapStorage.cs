@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using osu.Server.BeatmapSubmission.Models.API.Responses;
+using osu.Server.BeatmapSubmission.Models.Database;
 
 namespace osu.Server.BeatmapSubmission.Services
 {
@@ -12,5 +13,7 @@ namespace osu.Server.BeatmapSubmission.Services
         IEnumerable<BeatmapSetFile> ListBeatmapSetFiles(uint beatmapSetId);
 
         Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory);
+
+        Task<Stream> PackageBeatmapSetFilesAsync(IEnumerable<osu_beatmapset_version_file> files);
     }
 }

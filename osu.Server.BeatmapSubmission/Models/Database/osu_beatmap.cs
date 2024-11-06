@@ -5,7 +5,7 @@
 
 using osu.Game.Beatmaps;
 
-namespace osu.Server.BeatmapSubmission.Models
+namespace osu.Server.BeatmapSubmission.Models.Database
 {
     public class osu_beatmap
     {

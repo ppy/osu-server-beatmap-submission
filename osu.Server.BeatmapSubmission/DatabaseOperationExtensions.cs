@@ -3,7 +3,7 @@
 
 using Dapper;
 using MySqlConnector;
-using osu.Server.BeatmapSubmission.Models;
+using osu.Server.BeatmapSubmission.Models.Database;
 
 namespace osu.Server.BeatmapSubmission
 {
@@ -130,6 +130,68 @@ namespace osu.Server.BeatmapSubmission
                 WHERE `beatmapset_id` = @beatmapset_id
                 """,
                 beatmapSet,
+                transaction);
+        }
+
+        public static Task InsertBeatmapsetFileAsync(this MySqlConnection db, osu_beatmapset_file file, MySqlTransaction? transaction = null)
+        {
+            return db.ExecuteAsync(
+                "INSERT IGNORE INTO `osu_beatmapset_files` (`beatmapset_id`, `sha2_hash`) VALUES (@beatmapset_id, @sha2_hash)",
+                file,
+                transaction);
+        }
+
+        public static async Task<(osu_beatmapset_version, osu_beatmapset_version_file[])?> GetBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, uint versionId, MySqlTransaction? transaction = null)
+        {
+            var version = await db.QuerySingleOrDefaultAsync<osu_beatmapset_version?>(
+                "SELECT * FROM `osu_beatmapset_versions` WHERE `beatmapset_id` = @beatmapset_id AND `version_id` = @version_id",
+                new
+                {
+                    beatmapset_id = beatmapSetId,
+                    version_id = versionId
+                });
+
+            if (version == null)
+                return null;
+
+            osu_beatmapset_version_file[] files = (await db.QueryAsync<osu_beatmapset_version_file>(
+                "SELECT * FROM `osu_beatmapset_version_files` WHERE `beatmapset_id` = @beatmapset_id AND `version_id` = @version_id",
+                new
+                {
+                    beatmapset_id = beatmapSetId,
+                    version_id = versionId
+                })).ToArray();
+
+            return (version, files);
+        }
+
+        public static async Task<uint> CreateBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            uint version = await db.QuerySingleAsync<uint>(
+                "SELECT IFNULL(MAX(`version_id`), 0) + 1 FROM `osu_beatmapset_versions` WHERE `beatmapset_id` = @beatmapset_id",
+                new
+                {
+                    beatmapset_id = beatmapSetId
+                },
+                transaction);
+
+            await db.ExecuteAsync(
+                "INSERT INTO `osu_beatmapset_versions` (`beatmapset_id`, `version_id`, `uploaded_on`) VALUES (@beatmapset_id, @version_id, NOW())",
+                new
+                {
+                    beatmapset_id = beatmapSetId,
+                    version_id = version,
+                },
+                transaction);
+
+            return version;
+        }
+
+        public static Task InsertBeatmapsetVersionFileAsync(this MySqlConnection db, osu_beatmapset_version_file versionFile, MySqlTransaction? transaction = null)
+        {
+            return db.ExecuteAsync(
+                "INSERT INTO `osu_beatmapset_version_files` (`beatmapset_id`, `sha2_hash`, `version_id`, `filename`) VALUES (@beatmapset_id, @sha2_hash, @version_id, @filename)",
+                versionFile,
                 transaction);
         }
     }
