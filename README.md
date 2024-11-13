@@ -6,16 +6,6 @@ Handles submitting new and updating existing beatmaps to the [osu! website.](htt
 
 ### Development
 
-While the utility of it is limited, the project can be ran standalone in a development configuration.
-
-1. Run `docker compose up` from the project root directory to bring up a MySQL which uses with the `osu-web` information schema.
-2. Start the project in the `development` configuration.
-3. The application will start at http://localhost:5089.
-    - When interacting with endpoints which require authorisation, every request will use an auto-generated user ID that increments with every request.
-      If you wish to use a fixed user ID, then provide a `user_id: ${YOUR_ID_HERE}` header in the request, wherein `YOUR_ID_HERE` is the desired user ID as a number.
-
-### Staging
-
 This configuration permits full-stack integration testing with other local osu! services.
 To run the project in this configuration, you must have a configured [`osu-web` instance](https://github.com/ppy/osu-web/blob/master/SETUP.md).
 Additionally, to test beatmap downloads, you may want to set up a local beatmap mirror; see [`osu-beatmap-mirror-docker-runtime`](https://github.com/ThePooN/osu-beatmap-mirror-docker-runtime) for more information.
