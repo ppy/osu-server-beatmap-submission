@@ -63,7 +63,7 @@ namespace osu.Server.BeatmapSubmission
 
             if (beatmapSetId == null)
             {
-                if (request.BeatmapsToKeep.Any())
+                if (request.BeatmapsToKeep.Length != 0)
                     return UnprocessableEntity("Cannot specify beatmaps to keep when creating a new beatmap set.");
 
                 string username = await db.GetUsernameAsync(userId, transaction);

@@ -26,7 +26,7 @@ namespace osu.Server.BeatmapSubmission.Services
 
             foreach (string filename in filenames)
             {
-                files.Add(new osu_beatmapset_version_file()
+                files.Add(new osu_beatmapset_version_file
                 {
                     beatmapset_id = beatmapSetId,
                     sha2_hash = SHA256.HashData(archiveReader.GetStream(filename)),

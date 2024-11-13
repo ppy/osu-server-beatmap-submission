@@ -75,7 +75,7 @@ namespace osu.Server.BeatmapSubmission.Authentication
             key = key.Replace("-----END PUBLIC KEY-----", "");
             key = key.Replace("\n", "");
 
-            var keyBytes = Convert.FromBase64String(key);
+            byte[] keyBytes = Convert.FromBase64String(key);
 
             var asymmetricKeyParameter = PublicKeyFactory.CreateKey(keyBytes);
             var rsaKeyParameters = (RsaKeyParameters)asymmetricKeyParameter;

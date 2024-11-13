@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 // ReSharper disable InconsistentNaming
+// ReSharper disable CollectionNeverQueried
 
 using osu.Game.Beatmaps;
 
