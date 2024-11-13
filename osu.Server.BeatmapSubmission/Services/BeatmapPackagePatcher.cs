@@ -35,8 +35,6 @@ namespace osu.Server.BeatmapSubmission.Services
 
             foreach (var fileChanged in filesChanged)
             {
-                // TODO: here's an interesting question, how to handle files in subdirectories?
-                // i'm hoping this will "just work" out of the box, but it needs to be tested
                 string targetFilename = Path.Combine(tempDirectory.FullName, fileChanged.FileName);
                 string directoryPart = Path.GetDirectoryName(targetFilename) ?? string.Empty;
 
