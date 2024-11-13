@@ -137,20 +137,7 @@ namespace osu.Server.BeatmapSubmission
                 return Forbid();
 
             using var beatmapStream = beatmapArchive.OpenReadStream();
-            using var archiveReader = new ZipArchiveReader(beatmapStream);
-
-            var parseResult = BeatmapPackageParser.Parse(beatmapSetId, archiveReader);
-            using var transaction = await db.BeginTransactionAsync();
-
-            // TODO: ensure these actually belong to the beatmap set
-            foreach (var beatmapRow in parseResult.Beatmaps)
-                await db.UpdateBeatmapAsync(beatmapRow, transaction);
-
-            await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
-
-            await transaction.CommitAsync();
-            // TODO: the ACID implications on this happening post-commit are... interesting... not sure anything can be done better?
-            await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
+            await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
             return NoContent();
         }
 
@@ -185,7 +172,7 @@ namespace osu.Server.BeatmapSubmission
             return NoContent();
         }
 
-        private async Task updateBeatmapSetFromArchiveAsync(uint beatmapSetId, MemoryStream beatmapStream, MySqlConnection db)
+        private async Task updateBeatmapSetFromArchiveAsync(uint beatmapSetId, Stream beatmapStream, MySqlConnection db)
         {
             using var archiveReader = new ZipArchiveReader(beatmapStream);
             var parseResult = BeatmapPackageParser.Parse(beatmapSetId, archiveReader);
