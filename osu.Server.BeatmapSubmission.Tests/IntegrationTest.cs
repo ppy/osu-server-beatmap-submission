@@ -38,7 +38,43 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             db.Execute("TRUNCATE TABLE `phpbb_users`");
             db.Execute("TRUNCATE TABLE `osu_beatmaps`");
+
+            // temporarily (re)create tables for versioning ourselves until they are added to osu-web
+            db.Execute("DROP TABLE IF EXISTS `osu_beatmapset_version_files`");
+            db.Execute("DROP TABLE IF EXISTS `osu_beatmapset_files`");
+            db.Execute("DROP TABLE IF EXISTS `osu_beatmapset_versions`");
             db.Execute("TRUNCATE TABLE `osu_beatmapsets`");
+
+            db.Execute(
+                """
+                CREATE TABLE `osu_beatmapset_files` (
+                    `sha2_hash` BINARY(32) NOT NULL PRIMARY KEY
+                )
+                """);
+            db.Execute(
+                """
+                CREATE TABLE `osu_beatmapset_versions` (
+                    `version_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    `beatmapset_id` MEDIUMINT UNSIGNED NOT NULL,
+                    `uploaded_on` DATETIME NOT NULL DEFAULT NOW(),
+                    `previous_version_id` BIGINT UNSIGNED NULL DEFAULT NULL,
+                    
+                    FOREIGN KEY (`beatmapset_id`) REFERENCES osu_beatmapsets(`beatmapset_id`),
+                    FOREIGN KEY (`previous_version_id`) REFERENCES osu_beatmapset_versions(`version_id`)
+                )
+                """);
+            db.Execute(
+                """
+                CREATE TABLE `osu_beatmapset_version_files` (
+                    `sha2_hash` BINARY(32) NOT NULL,
+                    `version_id` BIGINT UNSIGNED NOT NULL,
+                    `filename` VARCHAR(500) NOT NULL,
+                    
+                    PRIMARY KEY (`sha2_hash`, `version_id`),
+                    FOREIGN KEY (`sha2_hash`) REFERENCES osu_beatmapset_files(`sha2_hash`),
+                    FOREIGN KEY (`version_id`) REFERENCES osu_beatmapset_versions(`version_id`)
+                )
+                """);
         }
 
         protected void WaitForDatabaseState<T>(string sql, T expected, CancellationToken cancellationToken, object? param = null)
