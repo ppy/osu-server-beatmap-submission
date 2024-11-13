@@ -73,7 +73,6 @@ namespace osu.Server.BeatmapSubmission.Services
                 string targetFilename = Path.Combine(targetDirectory, sourceFilename);
                 string directoryPart = Path.GetDirectoryName(targetFilename) ?? string.Empty;
 
-                // TODO: test that this logic works as it does in my head
                 if (!Directory.Exists(directoryPart))
                     Directory.CreateDirectory(directoryPart);
 

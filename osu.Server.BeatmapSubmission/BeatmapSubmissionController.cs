@@ -29,6 +29,8 @@ namespace osu.Server.BeatmapSubmission
             this.patcher = patcher;
         }
 
+        // TODO: accept pending/WIP user choice somewhere
+
         /// <summary>
         /// Create a new beatmap set, or add/remove beatmaps from an existing beatmap set
         /// </summary>
@@ -46,13 +48,13 @@ namespace osu.Server.BeatmapSubmission
             using var db = DatabaseAccess.GetConnection();
             using var transaction = await db.BeginTransactionAsync();
 
-            // TODO: check silence state (going to need to get the source to `osu.check_silenced()` function in db because i can't see into it)
+            // TODO: check silence state (going to need to get the source to `osu.check_silenced()` function in db because it doesn't exist in docker image)
             // TODO: check restriction state (`SELECT user_warnings FROM phpbb_users WHERE user_id = $userId`)
             // TODO: check difficulty limit (128 max)
             // TODO: check playcount (`("SELECT sum(playcount) FROM osu_user_month_playcount WHERE user_id = $userId") < 5`)
             // TODO: clean up user's inactive maps
             // TODO: check remaining map quota
-            // TODO: create relevant forum threads or whatever so that people can put descriptions
+            // TODO: create forum thread for description editing purposes if set is new
 
             uint userId = User.GetUserId();
 
@@ -117,9 +119,10 @@ namespace osu.Server.BeatmapSubmission
         [ProducesResponseType(204)]
         public async Task<IActionResult> UploadFullPackageAsync(
             [FromRoute] uint beatmapSetId,
-            // TODO: this won't fly on production, biggest existing beatmap archives exceed buffering limits.
+            // TODO: this won't fly on production, biggest existing beatmap archives exceed buffering limits (`MultipartBodyLengthLimit` = 128MB specifically)
+            // potentially also https://github.com/aspnet/Announcements/issues/267
             // see: https://learn.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads?view=aspnetcore-8.0#small-and-large-files
-            // using this for now just to get something going.
+            // needs further testing
             IFormFile beatmapArchive)
         {
             // TODO: do all of the due diligence checks
@@ -146,7 +149,7 @@ namespace osu.Server.BeatmapSubmission
             await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
 
             await transaction.CommitAsync();
-            // TODO: the ACID implications on this are... interesting...
+            // TODO: the ACID implications on this happening post-commit are... interesting... not sure anything can be done better?
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
             return NoContent();
         }
@@ -212,7 +215,7 @@ namespace osu.Server.BeatmapSubmission
             }
 
             await transaction.CommitAsync();
-            // TODO: the ACID implications on this are... interesting...
+            // TODO: the ACID implications on this happening post-commit are... interesting... not sure anything can be done better?
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
         }
 
@@ -239,8 +242,9 @@ namespace osu.Server.BeatmapSubmission
             if (beatmap == null)
                 return NotFound();
 
-            // TODO: this is probably obsolete immediately once https://github.com/ppy/osu-web/pull/11377 goes in.
-            // don't wanna get too deep into the woods on that one right now.
+            // TODO: ensure guest can't revive host's map (therefore using their quota)
+
+            // TODO: revisit once https://github.com/ppy/osu-web/pull/11377 goes in
             if (beatmap.user_id != User.GetUserId())
                 return Forbid();
 

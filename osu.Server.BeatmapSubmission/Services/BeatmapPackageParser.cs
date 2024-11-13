@@ -34,8 +34,7 @@ namespace osu.Server.BeatmapSubmission.Services
                 });
             }
 
-            // TODO: FOR THE LOVE OF GOD ENSURE THE BEATMAPS HAVE THE PROPER ONLINE IDS INSIDE
-            // AND ARE NOT REUSING STUFF FROM DIFFERENT SUBMITTED SETS BECAUSE HOLY HECK
+            // TODO: ensure the beatmaps have correct online IDs inside
 
             osu_beatmap[] beatmapRows = beatmaps.Select(constructDatabaseRowForBeatmap).ToArray();
             var beatmapSetRow = constructDatabaseRowForBeatmapset(beatmapSetId, archiveReader, beatmaps);
@@ -79,8 +78,7 @@ namespace osu.Server.BeatmapSubmission.Services
             return result;
         }
 
-        // didn't want to incur conversion overheads here just for this, so here you go.
-        // TODO: decide if this is ok or not
+        // TODO: rewrite once https://github.com/ppy/osu/pull/30578 is in
         private static void countObjectsByType(Beatmap beatmap, osu_beatmap result)
         {
             foreach (var hitobject in beatmap.HitObjects)
@@ -169,7 +167,7 @@ namespace osu.Server.BeatmapSubmission.Services
 
             var result = new osu_beatmapset
             {
-                beatmapset_id = beatmapSetId, // TODO: actually verify these
+                beatmapset_id = beatmapSetId,
                 artist = getSingleValueFrom(beatmaps, c => c.Beatmap.Metadata.Artist, nameof(BeatmapMetadata.Artist)),
                 artist_unicode = getSingleValueFrom(beatmaps,
                     c => !string.IsNullOrEmpty(c.Beatmap.Metadata.ArtistUnicode) ? c.Beatmap.Metadata.ArtistUnicode : null,
@@ -184,11 +182,11 @@ namespace osu.Server.BeatmapSubmission.Services
                 filename = FormattableString.Invariant($"{beatmapSetId}.osz"),
             };
 
-            // TODO: maybe legacy cruft?
+            // TODO: maybe unnecessary?
             result.displaytitle = $"[bold:0,size:20]{result.artist_unicode}|{result.title_unicode}";
 
-            // TODO: this is not doing `difficulty_names` because i'm *relatively* sure that cannot work correctly in the original BSS either
-            // (old BSS embeds star ratings into the value of that which are not going to be correct now).
+            // TODO: not updating `difficulty_names` despite original BSS doing so - pretty sure that cannot work correctly in the original BSS either
+            // (old BSS embeds star ratings into the value of that which are not going to be correct at this point in time).
 
             if (archiveReader.Filenames.Any(f => OsuGameBase.VIDEO_EXTENSIONS.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase)))
             {

@@ -10,6 +10,8 @@ namespace osu.Server.BeatmapSubmission.Tests
     [Collection("Integration Tests")] // ensures sequential execution
     public abstract class IntegrationTest : IClassFixture<IntegrationTestWebApplicationFactory<Program>>, IDisposable
     {
+        // TODO: test patches
+
         protected readonly HttpClient Client;
 
         protected CancellationToken CancellationToken => cancellationSource.Token;

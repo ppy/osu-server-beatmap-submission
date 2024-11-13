@@ -35,7 +35,6 @@ namespace osu.Server.BeatmapSubmission.Authentication
             {
                 IssuerSigningKey = new RsaSecurityKey(rsa),
                 ValidAudience = AppSettings.JwtValidAudience,
-                // TODO: figure out why this isn't included in the token.
                 ValidateIssuer = false,
                 ValidIssuer = "https://osu.ppy.sh/"
             };
