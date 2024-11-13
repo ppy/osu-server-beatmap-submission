@@ -42,7 +42,7 @@ jobs:
           exit $exit_code
 
       - name: InspectCode
-        uses: JetBrains/ReSharper-InspectCode@v0.7
+        uses: JetBrains/ReSharper-InspectCode@v0.8
         with:
           build: true
           solution: ./osu-server-beatmap-submission.sln
