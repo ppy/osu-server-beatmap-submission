@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "jetbrains.resharper.globaltools": {
+      "version": "2024.3.0",
+      "commands": [
+        "jb"
+      ],
+      "rollForward": false
+    },
+    "nvika": {
+      "version": "4.0.0",
+      "commands": [
+        "nvika"
+      ],
+      "rollForward": false
+    },
+    "codefilesanity": {
+      "version": "0.0.37",
+      "commands": [
+        "CodeFileSanity"
+      ],
+      "rollForward": false
+    }
+  }
+}
