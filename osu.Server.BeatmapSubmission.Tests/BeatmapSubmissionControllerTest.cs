@@ -19,6 +19,9 @@ namespace osu.Server.BeatmapSubmission.Tests
 {
     public class BeatmapSubmissionControllerTest : IntegrationTest
     {
+        private const string osz_filename = "241526 Soleily - Renatus.osz";
+        private const string osu_filename = "Soleily - Renatus (Deif) [Platter 2].osu";
+
         protected new HttpClient Client { get; }
 
         private readonly LocalBeatmapStorage beatmapStorage;
@@ -179,7 +182,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
-        public async Task TestReplaceBeatmapSet()
+        public async Task TestUploadFullPackage()
         {
             using var db = DatabaseAccess.GetConnection();
 
@@ -190,10 +193,9 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
 
-            const string filename = "241526 Soleily - Renatus.osz";
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
-            using var stream = TestResources.GetResource(filename)!;
-            content.Add(new StreamContent(stream), "beatmapArchive", filename);
+            using var stream = TestResources.GetResource(osz_filename)!;
+            content.Add(new StreamContent(stream), "beatmapArchive", osz_filename);
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
@@ -249,6 +251,100 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal(7.5f, maniaBeatmap.diff_overall);
             Assert.Equal(5f, maniaBeatmap.diff_approach);
             Assert.Equal(3, maniaBeatmap.playmode);
+        }
+
+        [Fact]
+        public async Task TestPatchPackage()
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var osuFileStream = TestResources.GetResource(osu_filename)!;
+            content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
+            content.Add(new StringContent("Soleily - Renatus (Deif) [Platter].osu"), "filesDeleted");
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = 241526 AND `deleted_at` IS NULL", 12, CancellationToken);
+
+            var renamedBeatmap = await db.QuerySingleAsync<osu_beatmap>(@"SELECT * FROM `osu_beatmaps` WHERE `beatmap_id` = 557810");
+            Assert.Equal("Platter 2", renamedBeatmap.version);
+        }
+
+        [Fact]
+        public async Task TestSubmitGuestDifficulty()
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (557810, 2000, 241526, -1)");
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var osuFileStream = TestResources.GetResource(osu_filename)!;
+            content.Add(new StreamContent(osuFileStream), "beatmapContents", osu_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2000");
+
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = 241526 AND `deleted_at` IS NULL", 12, CancellationToken);
+
+            var renamedBeatmap = await db.QuerySingleAsync<osu_beatmap>(@"SELECT * FROM `osu_beatmaps` WHERE `beatmap_id` = 557810");
+            Assert.Equal("Platter 2", renamedBeatmap.version);
+        }
+
+        [Fact]
+        public async Task TestSubmitGuestDifficulty_FailsWhenDoneByAnotherUser()
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (557810, 2000, 241526, -1)");
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var osuFileStream = TestResources.GetResource(osu_filename)!;
+            content.Add(new StreamContent(osuFileStream), "beatmapContents", osu_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "3000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
         public override void Dispose()

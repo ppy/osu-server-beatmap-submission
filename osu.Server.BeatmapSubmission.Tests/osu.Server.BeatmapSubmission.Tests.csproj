@@ -27,8 +27,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Remove="Resources\241526 Soleily - Renatus.osz" />
-      <EmbeddedResource Include="Resources\241526 Soleily - Renatus.osz" />
+      <EmbeddedResource Include="Resources\*" Exclude="Resources\TestResources.cs" />
     </ItemGroup>
 
 </Project>
