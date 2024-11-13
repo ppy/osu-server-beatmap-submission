@@ -6,7 +6,6 @@ using System.Net.Http.Json;
 using Dapper;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Moq;
 using osu.Framework.Utils;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models.API.Requests;
@@ -20,16 +19,21 @@ namespace osu.Server.BeatmapSubmission.Tests
 {
     public class BeatmapSubmissionControllerTest : IntegrationTest
     {
-        protected new HttpClient Client { get; private set; }
+        protected new HttpClient Client { get; }
 
-        public BeatmapSubmissionControllerTest(TestWebApplicationFactory<Program> webAppFactory)
+        private readonly LocalBeatmapStorage beatmapStorage;
+
+        public BeatmapSubmissionControllerTest(IntegrationTestWebApplicationFactory<Program> webAppFactory)
             : base(webAppFactory)
         {
+            beatmapStorage = new LocalBeatmapStorage(Directory.CreateTempSubdirectory(nameof(BeatmapSubmissionControllerTest)).FullName);
+
             Client = webAppFactory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped<IBeatmapStorage>(_ => new Mock<IBeatmapStorage>().Object);
+                    services.AddTransient<IBeatmapStorage>(_ => beatmapStorage);
+                    services.AddTransient<BeatmapPackagePatcher>();
                 });
             }).CreateClient();
         }
@@ -42,7 +46,7 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest { BeatmapsToCreate = 15 });
-            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "2");
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2");
 
             var response = await Client.SendAsync(request);
             Assert.True(response.IsSuccessStatusCode);
@@ -69,7 +73,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                 BeatmapsToCreate = 15,
                 BeatmapsToKeep = [1, 2, 3],
             });
-            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "2");
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2");
 
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
@@ -93,7 +97,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                 BeatmapsToCreate = 3,
                 BeatmapsToKeep = [5001, 5003, 5005],
             });
-            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "1000");
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
             var response = await Client.SendAsync(request);
             Assert.True(response.IsSuccessStatusCode);
@@ -125,7 +129,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                 BeatmapsToCreate = 3,
                 BeatmapsToKeep = [5001, 5003, 5005],
             });
-            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "2000");
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2000");
 
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
@@ -149,7 +153,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                 BeatmapsToCreate = 3,
                 BeatmapsToKeep = [9999],
             });
-            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "1000");
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
@@ -167,7 +171,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                 BeatmapSetID = 1000,
                 BeatmapsToCreate = 3,
             });
-            request.Headers.Add(LocalAuthenticationHandler.USER_ID_HEADER, "1000");
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
@@ -191,6 +195,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using var stream = TestResources.GetResource(filename)!;
             content.Add(new StreamContent(stream), "beatmapArchive", filename);
             request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
             var response = await Client.SendAsync(request);
             Assert.True(response.IsSuccessStatusCode);
@@ -244,6 +249,12 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal(7.5f, maniaBeatmap.diff_overall);
             Assert.Equal(5f, maniaBeatmap.diff_approach);
             Assert.Equal(3, maniaBeatmap.playmode);
+        }
+
+        public override void Dispose()
+        {
+            base.Dispose();
+            Directory.Delete(beatmapStorage.BaseDirectory, recursive: true);
         }
     }
 }

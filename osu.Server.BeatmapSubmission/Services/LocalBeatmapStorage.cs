@@ -14,6 +14,13 @@ namespace osu.Server.BeatmapSubmission.Services
 {
     public class LocalBeatmapStorage : IBeatmapStorage
     {
+        public string BaseDirectory { get; }
+
+        public LocalBeatmapStorage(string? directory = null)
+        {
+            BaseDirectory = directory ?? AppSettings.LocalBeatmapStoragePath;
+        }
+
         public async Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage)
         {
             string path = getPathToPackage(beatmapSetId);
@@ -95,9 +102,9 @@ namespace osu.Server.BeatmapSubmission.Services
             return memoryStream;
         });
 
-        private static string getPathToPackage(uint beatmapSetId) => Path.Combine(AppSettings.LocalBeatmapStoragePath, beatmapSetId.ToString(CultureInfo.InvariantCulture));
+        private string getPathToPackage(uint beatmapSetId) => Path.Combine(BaseDirectory, beatmapSetId.ToString(CultureInfo.InvariantCulture));
 
-        private static string getPathToVersionedFile(uint beatmapSetId, string sha2)
-            => Path.Combine(AppSettings.LocalBeatmapStoragePath, FormattableString.Invariant($@"{beatmapSetId}_files"), sha2);
+        private string getPathToVersionedFile(uint beatmapSetId, string sha2)
+            => Path.Combine(BaseDirectory, FormattableString.Invariant($@"{beatmapSetId}_files"), sha2);
     }
 }

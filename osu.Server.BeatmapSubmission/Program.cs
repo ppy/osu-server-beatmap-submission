@@ -1,5 +1,4 @@
 using JetBrains.Annotations;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using osu.Server.BeatmapSubmission.Authentication;
@@ -24,48 +23,27 @@ namespace osu.Server.BeatmapSubmission
                 // TODO: sentry
             });
 
-            builder.Services.AddTransient<BeatmapPackagePatcher>();
+            builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, OsuWebSharedJwtBearerOptions>();
+            builder.Services.AddAuthentication(config =>
+                   {
+                       config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                       config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                   })
+                   .AddJwtBearer();
 
             switch (builder.Environment.EnvironmentName)
             {
                 case "Development":
                 {
-                    // constrain docs tools to development instances for now.
-                    // I don't really think we want them out in public.
-                    // TODO: confirm this
-                    builder.Services.AddEndpointsApiExplorer();
-                    builder.Services.AddSwaggerGen();
-                    builder.Services.AddAuthentication(config =>
-                    {
-                        config.DefaultAuthenticateScheme = LocalAuthenticationHandler.AUTH_SCHEME;
-                        config.DefaultChallengeScheme = LocalAuthenticationHandler.AUTH_SCHEME;
-                    }).AddScheme<AuthenticationSchemeOptions, LocalAuthenticationHandler>(LocalAuthenticationHandler.AUTH_SCHEME, null);
+                    builder.Services.AddTransient<IBeatmapStorage, LocalBeatmapStorage>();
+                    builder.Services.AddTransient<BeatmapPackagePatcher>();
                     break;
                 }
 
                 case "Staging":
-                {
-                    builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, OsuWebSharedJwtBearerOptions>();
-                    builder.Services.AddAuthentication(config =>
-                           {
-                               config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                               config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                           })
-                           .AddJwtBearer();
-                    builder.Services.AddScoped<IBeatmapStorage, LocalBeatmapStorage>();
-                    break;
-                }
-
                 case "Production":
                 {
-                    builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, OsuWebSharedJwtBearerOptions>();
-                    builder.Services.AddAuthentication(config =>
-                           {
-                               config.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                               config.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                           })
-                           .AddJwtBearer();
-                    // TODO: DI beatmap storage
+                    // TODO: S3-based beatmap storage
                     break;
                 }
             }

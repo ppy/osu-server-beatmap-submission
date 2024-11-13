@@ -8,14 +8,14 @@ using osu.Server.QueueProcessor;
 namespace osu.Server.BeatmapSubmission.Tests
 {
     [Collection("Integration Tests")] // ensures sequential execution
-    public abstract class IntegrationTest : IClassFixture<TestWebApplicationFactory<Program>>
+    public abstract class IntegrationTest : IClassFixture<IntegrationTestWebApplicationFactory<Program>>, IDisposable
     {
         protected readonly HttpClient Client;
 
         protected CancellationToken CancellationToken => cancellationSource.Token;
         private readonly CancellationTokenSource cancellationSource;
 
-        protected IntegrationTest(TestWebApplicationFactory<Program> webAppFactory)
+        protected IntegrationTest(IntegrationTestWebApplicationFactory<Program> webAppFactory)
         {
             Client = webAppFactory.CreateClient();
             reinitialiseDatabase();
@@ -61,6 +61,12 @@ namespace osu.Server.BeatmapSubmission.Tests
                     Thread.Sleep(50);
                 }
             }
+        }
+
+        public virtual void Dispose()
+        {
+            Client.Dispose();
+            cancellationSource.Dispose();
         }
     }
 }
