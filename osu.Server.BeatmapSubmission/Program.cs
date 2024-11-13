@@ -1,3 +1,4 @@
+using System.Reflection;
 using JetBrains.Annotations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
@@ -37,6 +38,10 @@ namespace osu.Server.BeatmapSubmission
                 {
                     builder.Services.AddTransient<IBeatmapStorage, LocalBeatmapStorage>();
                     builder.Services.AddTransient<BeatmapPackagePatcher>();
+                    builder.Services.AddSwaggerGen(c =>
+                    {
+                        c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, Assembly.GetExecutingAssembly().GetName().Name + ".xml"));
+                    });
                     break;
                 }
 
@@ -54,7 +59,7 @@ namespace osu.Server.BeatmapSubmission
             {
                 app.UseDeveloperExceptionPage();
                 app.UseSwagger();
-                app.UseSwaggerUI();
+                app.UseReDoc();
             }
 
             app.UseAuthorization();

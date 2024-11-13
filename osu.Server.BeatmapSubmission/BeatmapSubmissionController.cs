@@ -29,10 +29,18 @@ namespace osu.Server.BeatmapSubmission
             this.patcher = patcher;
         }
 
+        /// <summary>
+        /// Create a new beatmap set, or add/remove beatmaps from an existing beatmap set
+        /// </summary>
+        /// <response code="200">The requested changes have been applied.</response>
+        /// <response code="403">The user is not allowed to modify this beatmap set.</response>
+        /// <response code="404">The request specified a beatmap set that does not yet exist.</response>
+        /// <response code="429">The request was incorrectly formed. Check returned error for details.</response>
         [HttpPut]
         [Route("beatmapsets")]
         [Consumes("application/json")]
         [Produces("application/json")]
+        [ProducesResponseType(typeof(PutBeatmapSetResponse), 200)]
         public async Task<IActionResult> PutBeatmapSetAsync([FromBody] PutBeatmapSetRequest request)
         {
             using var db = DatabaseAccess.GetConnection();
@@ -96,14 +104,23 @@ namespace osu.Server.BeatmapSubmission
             });
         }
 
+        /// <summary>
+        /// Upload a full beatmap package (<c>.osz</c>) for the beatmap set with the given ID
+        /// </summary>
+        /// <param name="beatmapSetId" example="241526">The ID of the beatmap set.</param>
+        /// <param name="beatmapArchive">The full beatmap package file.</param>
+        /// <response code="204">The package has been successfully uploaded.</response>
+        /// <response code="403">The user is not allowed to modify this beatmap set.</response>
+        /// <response code="404">The request specified a beatmap set that does not yet exist.</response>
         [HttpPut]
         [Route("beatmapsets/{beatmapSetId}")]
-        public async Task<IActionResult> ReplaceBeatmapSetAsync(
+        [ProducesResponseType(204)]
+        public async Task<IActionResult> UploadFullPackageAsync(
             [FromRoute] uint beatmapSetId,
             // TODO: this won't fly on production, biggest existing beatmap archives exceed buffering limits.
             // see: https://learn.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads?view=aspnetcore-8.0#small-and-large-files
             // using this for now just to get something going.
-            [FromForm] IFormFile beatmapArchive)
+            IFormFile beatmapArchive)
         {
             // TODO: do all of the due diligence checks
 
@@ -134,11 +151,21 @@ namespace osu.Server.BeatmapSubmission
             return NoContent();
         }
 
+        /// <summary>
+        /// Perform a partial update to the package (<c>.osz</c>) for the beatmap set with the given ID
+        /// </summary>
+        /// <param name="beatmapSetId" example="241526">The ID of the beatmap set.</param>
+        /// <param name="filesChanged">A collection of all changed files which should replace their previous versions in the package.</param>
+        /// <param name="filesDeleted" example="[&quot;Kick.wav&quot;, &quot;Snare.wav&quot;]">A list of all filenames which should be deleted from the package.</param>
+        /// <response code="204">The package has been successfully patched.</response>
+        /// <response code="403">The user is not allowed to modify this beatmap set.</response>
+        /// <response code="404">The request specified a beatmap set that does not yet exist.</response>
         [HttpPatch]
         [Route("beatmapsets/{beatmapSetId}")]
-        public async Task<IActionResult> PatchBeatmapSetAsync(
+        [ProducesResponseType(204)]
+        public async Task<IActionResult> PatchPackageAsync(
             [FromRoute] uint beatmapSetId,
-            [FromForm] IFormFileCollection filesChanged,
+            IFormFileCollection filesChanged,
             [FromForm] string[] filesDeleted)
         {
             using var db = DatabaseAccess.GetConnection();
@@ -189,12 +216,22 @@ namespace osu.Server.BeatmapSubmission
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
         }
 
+        /// <summary>
+        /// Upload a guest beatmap (difficulty) with the given beatmap ID to the set with the given ID
+        /// </summary>
+        /// <param name="beatmapSetId" example="241526">The ID of the beatmap set which the guest beatmap (difficulty) belongs to.</param>
+        /// <param name="beatmapId" example="557814">The ID of the guest beatmap (difficulty) to update.</param>
+        /// <param name="beatmapContents">The contents of the <c>.osu</c> file for the given guest beatmap (difficulty).</param>
+        /// <response code="204">The guest beatmap (difficulty) has been successfully updated.</response>
+        /// <response code="403">The user is not allowed to modify this beatmap (difficulty).</response>
+        /// <response code="404">The request specified a beatmap (difficulty) that does not yet exist.</response>
         [HttpPatch]
         [Route("beatmapsets/{beatmapSetId}/beatmaps/{beatmapId}")]
-        public async Task<IActionResult> PatchBeatmapAsGuestAsync(
+        [ProducesResponseType(204)]
+        public async Task<IActionResult> UploadGuestDifficultyAsync(
             [FromRoute] uint beatmapSetId,
             [FromRoute] uint beatmapId,
-            [FromForm] IFormFile beatmapContents)
+            IFormFile beatmapContents)
         {
             using var db = DatabaseAccess.GetConnection();
 
@@ -212,9 +249,21 @@ namespace osu.Server.BeatmapSubmission
             return NoContent();
         }
 
+        /// <summary>
+        /// Download a historical version of a beatmap
+        /// </summary>
+        /// <remarks>
+        /// NOTE: This endpoint is provisional and added for demonstrative purposes.
+        /// It is not guaranteed that it will remain in this project going forward.
+        /// </remarks>
+        /// <param name="beatmapSetId" example="241526">The ID of the beatmap set to download.</param>
+        /// <param name="versionId">The number of the version of the beatmap set to download.</param>
+        /// <response code="200">The beatmap has been downloaded.</response>
+        /// <response code="404">The request specified a beatmap set or version that does not yet exist.</response>
         [HttpGet]
         [AllowAnonymous]
         [Route("beatmapsets/{beatmapSetId}/versions/{versionId}")]
+        [Produces("application/x-osu-beatmap-archive")]
         public async Task<IActionResult> DownloadBeatmapVersionAsync(
             [FromRoute] uint beatmapSetId,
             [FromRoute] uint versionId)
