@@ -50,7 +50,7 @@ namespace osu.Server.BeatmapSubmission
 
             // TODO: check silence state (going to need to get the source to `osu.check_silenced()` function in db because it doesn't exist in docker image)
             // TODO: check restriction state (`SELECT user_warnings FROM phpbb_users WHERE user_id = $userId`)
-            // TODO: check difficulty limit (128 max)
+            // TODO: check difficulty limits (1 min, 128 max)
             // TODO: check playcount (`("SELECT sum(playcount) FROM osu_user_month_playcount WHERE user_id = $userId") < 5`)
             // TODO: clean up user's inactive maps
             // TODO: check remaining map quota
@@ -168,6 +168,7 @@ namespace osu.Server.BeatmapSubmission
                 return Forbid();
 
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
+            // TODO: ensure that after patching, all the `.osu`s that should be in the `.osz` ARE in the `.osz`, and ensure there are no EXTRA `.osu`s
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
             return NoContent();
         }
