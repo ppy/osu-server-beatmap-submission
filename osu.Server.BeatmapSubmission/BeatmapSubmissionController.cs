@@ -188,12 +188,11 @@ namespace osu.Server.BeatmapSubmission
             {
                 await db.InsertBeatmapsetFileAsync(new osu_beatmapset_file
                 {
-                    beatmapset_id = file.beatmapset_id,
                     sha2_hash = file.sha2_hash,
                 }, transaction);
             }
 
-            uint versionId = await db.CreateBeatmapsetVersionAsync(beatmapSetId, transaction);
+            ulong versionId = await db.CreateBeatmapsetVersionAsync(beatmapSetId, transaction);
 
             foreach (var file in parseResult.Files)
             {

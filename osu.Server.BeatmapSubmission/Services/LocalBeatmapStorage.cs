@@ -33,7 +33,7 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 var sourceStream = archive.GetStream(filename);
                 string sha2 = sourceStream.ComputeSHA2Hash();
-                string targetPath = getPathToVersionedFile(beatmapSetId, sha2);
+                string targetPath = getPathToVersionedFile(sha2);
                 string targetDirectory = Path.GetDirectoryName(targetPath)!;
 
                 if (!Directory.Exists(targetDirectory))
@@ -90,7 +90,7 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 foreach (var file in files)
                 {
-                    string targetFilename = getPathToVersionedFile(file.beatmapset_id, BitConverter.ToString(file.sha2_hash).Replace("-", string.Empty).ToLowerInvariant());
+                    string targetFilename = getPathToVersionedFile(BitConverter.ToString(file.sha2_hash).Replace("-", string.Empty).ToLowerInvariant());
 
                     using var fileStream = File.OpenRead(targetFilename);
                     zipWriter.Write(file.filename, fileStream);
@@ -103,7 +103,6 @@ namespace osu.Server.BeatmapSubmission.Services
 
         private string getPathToPackage(uint beatmapSetId) => Path.Combine(BaseDirectory, beatmapSetId.ToString(CultureInfo.InvariantCulture));
 
-        private string getPathToVersionedFile(uint beatmapSetId, string sha2)
-            => Path.Combine(BaseDirectory, FormattableString.Invariant($@"{beatmapSetId}_files"), sha2);
+        private string getPathToVersionedFile(string sha2) => Path.Combine(BaseDirectory, @"files", sha2);
     }
 }
