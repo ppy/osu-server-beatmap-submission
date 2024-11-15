@@ -46,7 +46,7 @@ namespace osu.Server.BeatmapSubmission
             using var db = DatabaseAccess.GetConnection();
             using var transaction = await db.BeginTransactionAsync();
 
-            // TODO: check silence state (going to need to get the source to `osu.check_silenced()` function in db because it doesn't exist in docker image)
+            // TODO: check silence state (https://github.com/ppy/osu-web/blob/master/app/Models/User.php#L1114-L1127)
             // TODO: check restriction state (`SELECT user_warnings FROM phpbb_users WHERE user_id = $userId`)
             // TODO: check difficulty limits (1 min, 128 max)
             // TODO: check playcount (`("SELECT sum(playcount) FROM osu_user_month_playcount WHERE user_id = $userId") < 5`)
