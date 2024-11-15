@@ -6,9 +6,10 @@ using osu.Framework.Extensions;
 using osu.Game;
 using osu.Game.Beatmaps;
 using osu.Game.Beatmaps.Formats;
+using osu.Game.Beatmaps.Legacy;
 using osu.Game.IO;
 using osu.Game.IO.Archives;
-using osu.Game.Rulesets.Objects.Types;
+using osu.Game.Rulesets.Objects.Legacy;
 using osu.Game.Storyboards;
 using osu.Server.BeatmapSubmission.Models.Database;
 
@@ -77,75 +78,6 @@ namespace osu.Server.BeatmapSubmission.Services
             return result;
         }
 
-        // TODO: rewrite once https://github.com/ppy/osu/pull/30578 is in
-        private static void countObjectsByType(Beatmap beatmap, osu_beatmap result)
-        {
-            foreach (var hitobject in beatmap.HitObjects)
-            {
-                switch (result.playmode)
-                {
-                    case 0:
-                    case 2:
-                    {
-                        switch (hitobject)
-                        {
-                            case IHasPathWithRepeats:
-                                result.countSlider += 1;
-                                break;
-
-                            case IHasDuration:
-                                result.countSpinner += 1;
-                                break;
-
-                            default:
-                                result.countNormal += 1;
-                                break;
-                        }
-
-                        break;
-                    }
-
-                    case 1:
-                    {
-                        switch (hitobject)
-                        {
-                            case IHasPath:
-                                result.countSlider += 1;
-                                break;
-
-                            case IHasDuration:
-                                result.countSpinner += 1;
-                                break;
-
-                            default:
-                                result.countNormal += 1;
-                                break;
-                        }
-
-                        break;
-                    }
-
-                    case 3:
-                    {
-                        switch (hitobject)
-                        {
-                            case IHasDuration:
-                                result.countSlider += 1;
-                                break;
-
-                            default:
-                                result.countNormal += 1;
-                                break;
-                        }
-
-                        break;
-                    }
-                }
-
-                result.countTotal += 1;
-            }
-        }
-
         private static osu_beatmapset constructDatabaseRowForBeatmapset(uint beatmapSetId, ArchiveReader archiveReader, BeatmapContent[] beatmaps)
         {
             // TODO: currently all exceptions thrown here will be 500s, they should be 429s
@@ -206,6 +138,20 @@ namespace osu.Server.BeatmapSubmission.Services
             }
 
             return result;
+        }
+
+        private static void countObjectsByType(Beatmap beatmap, osu_beatmap result)
+        {
+            foreach (var hitobject in beatmap.HitObjects.OfType<IHasLegacyHitObjectType>())
+            {
+                if ((hitobject.LegacyType & LegacyHitObjectType.Circle) > 0)
+                    result.countNormal += 1;
+                if ((hitobject.LegacyType & LegacyHitObjectType.Slider) > 0 || (hitobject.LegacyType & LegacyHitObjectType.Hold) > 0)
+                    result.countSlider += 1;
+                if ((hitobject.LegacyType & LegacyHitObjectType.Spinner) > 0)
+                    result.countSpinner += 1;
+                result.countTotal += 1;
+            }
         }
 
         private record BeatmapContent(string Filename, string MD5, Beatmap Beatmap);
