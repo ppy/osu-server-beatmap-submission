@@ -85,15 +85,6 @@ namespace osu.Server.BeatmapSubmission.Services
             if (beatmaps.Length == 0)
                 throw new InvalidOperationException("The uploaded beatmap set must have at least one difficulty.");
 
-            T getSingleValueFrom<T>(IEnumerable<BeatmapContent> beatmapContents, Func<BeatmapContent, T> accessor, string valueName)
-            {
-                T[] distinctValues = beatmapContents.Select(accessor).Distinct().ToArray();
-                if (distinctValues.Length != 1)
-                    throw new InvalidOperationException($"The uploaded beatmap set's individual difficulties have inconsistent {valueName}. Please unify {valueName} before re-submitting.");
-
-                return distinctValues.Single();
-            }
-
             float firstBeatLength = (float)beatmaps.First().Beatmap.GetMostCommonBeatLength();
 
             var result = new osu_beatmapset
@@ -138,6 +129,15 @@ namespace osu.Server.BeatmapSubmission.Services
             }
 
             return result;
+        }
+
+        private static T getSingleValueFrom<T>(IEnumerable<BeatmapContent> beatmapContents, Func<BeatmapContent, T> accessor, string valueName)
+        {
+            T[] distinctValues = beatmapContents.Select(accessor).Distinct().ToArray();
+            if (distinctValues.Length != 1)
+                throw new InvalidOperationException($"The uploaded beatmap set's individual difficulties have inconsistent {valueName}. Please unify {valueName} before re-submitting.");
+
+            return distinctValues.Single();
         }
 
         private static void countObjectsByType(Beatmap beatmap, osu_beatmap result)
