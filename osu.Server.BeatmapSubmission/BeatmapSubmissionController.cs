@@ -7,6 +7,7 @@ using MySqlConnector;
 using osu.Framework.Extensions;
 using osu.Game.IO.Archives;
 using osu.Server.BeatmapSubmission.Authentication;
+using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.API.Requests;
 using osu.Server.BeatmapSubmission.Models.API.Responses;
 using osu.Server.BeatmapSubmission.Models.Database;
@@ -184,20 +185,15 @@ namespace osu.Server.BeatmapSubmission
 
             await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
 
-            foreach (var file in parseResult.Files)
-            {
-                await db.InsertBeatmapsetFileAsync(new osu_beatmapset_file
-                {
-                    sha2_hash = file.sha2_hash,
-                }, transaction);
-            }
+            foreach (var versionedFile in parseResult.Files)
+                versionedFile.VersionFile.file_id = await db.InsertBeatmapsetFileAsync(versionedFile.File, transaction);
 
             ulong versionId = await db.CreateBeatmapsetVersionAsync(beatmapSetId, transaction);
 
-            foreach (var file in parseResult.Files)
+            foreach (var versionedFile in parseResult.Files)
             {
-                file.version_id = versionId;
-                await db.InsertBeatmapsetVersionFileAsync(file, transaction);
+                versionedFile.VersionFile.version_id = versionId;
+                await db.InsertBeatmapsetVersionFileAsync(versionedFile.VersionFile, transaction);
             }
 
             await transaction.CommitAsync();
@@ -261,7 +257,7 @@ namespace osu.Server.BeatmapSubmission
         {
             using var db = DatabaseAccess.GetConnection();
 
-            (osu_beatmapset_version version, osu_beatmapset_version_file[] files)? versionInfo = await db.GetBeatmapsetVersionAsync(beatmapSetId, versionId);
+            (osu_beatmapset_version version, VersionedFile[] files)? versionInfo = await db.GetBeatmapsetVersionAsync(beatmapSetId, versionId);
 
             if (versionInfo == null)
                 return NotFound();

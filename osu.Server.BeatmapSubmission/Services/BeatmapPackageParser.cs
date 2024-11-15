@@ -11,6 +11,7 @@ using osu.Game.IO;
 using osu.Game.IO.Archives;
 using osu.Game.Rulesets.Objects.Legacy;
 using osu.Game.Storyboards;
+using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.Database;
 
 namespace osu.Server.BeatmapSubmission.Services
@@ -23,15 +24,22 @@ namespace osu.Server.BeatmapSubmission.Services
 
             BeatmapContent[] beatmaps = getBeatmapContent(archiveReader, filenames).ToArray();
 
-            var files = new List<osu_beatmapset_version_file>(filenames.Length);
+            var files = new List<VersionedFile>(filenames.Length);
 
             foreach (string filename in filenames)
             {
-                files.Add(new osu_beatmapset_version_file
-                {
-                    sha2_hash = SHA256.HashData(archiveReader.GetStream(filename)),
-                    filename = filename,
-                });
+                var stream = archiveReader.GetStream(filename);
+                files.Add(new VersionedFile(
+                    new osu_beatmapset_file
+                    {
+                        sha2_hash = SHA256.HashData(stream),
+                        file_size = (uint)stream.Length,
+                    },
+                    new osu_beatmapset_version_file
+                    {
+                        filename = filename,
+                    }
+                ));
             }
 
             // TODO: ensure the beatmaps have correct online IDs inside
@@ -160,5 +168,5 @@ namespace osu.Server.BeatmapSubmission.Services
     public record struct BeatmapPackageParseResult(
         osu_beatmapset BeatmapSet,
         osu_beatmap[] Beatmaps,
-        osu_beatmapset_version_file[] Files);
+        VersionedFile[] Files);
 }

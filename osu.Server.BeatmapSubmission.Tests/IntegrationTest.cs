@@ -46,7 +46,11 @@ namespace osu.Server.BeatmapSubmission.Tests
             db.Execute(
                 """
                 CREATE TABLE `osu_beatmapset_files` (
-                    `sha2_hash` BINARY(32) NOT NULL PRIMARY KEY
+                    `file_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    `sha2_hash` BINARY(32) NOT NULL,
+                    `file_size` INT UNSIGNED NOT NULL,
+                    
+                    UNIQUE (`sha2_hash`)
                 )
                 """);
             db.Execute(
@@ -54,7 +58,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                 CREATE TABLE `osu_beatmapset_versions` (
                     `version_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                     `beatmapset_id` MEDIUMINT UNSIGNED NOT NULL,
-                    `uploaded_on` DATETIME NOT NULL DEFAULT NOW(),
+                    `created_at` DATETIME NOT NULL DEFAULT NOW(),
                     `previous_version_id` BIGINT UNSIGNED NULL DEFAULT NULL,
                     
                     FOREIGN KEY (`beatmapset_id`) REFERENCES osu_beatmapsets(`beatmapset_id`),
@@ -64,12 +68,12 @@ namespace osu.Server.BeatmapSubmission.Tests
             db.Execute(
                 """
                 CREATE TABLE `osu_beatmapset_version_files` (
-                    `sha2_hash` BINARY(32) NOT NULL,
+                    `file_id` BIGINT UNSIGNED NOT NULL,
                     `version_id` BIGINT UNSIGNED NOT NULL,
                     `filename` VARCHAR(500) NOT NULL,
                     
-                    PRIMARY KEY (`sha2_hash`, `version_id`),
-                    FOREIGN KEY (`sha2_hash`) REFERENCES osu_beatmapset_files(`sha2_hash`),
+                    PRIMARY KEY (`file_id`, `version_id`),
+                    FOREIGN KEY (`file_id`) REFERENCES osu_beatmapset_files(`file_id`),
                     FOREIGN KEY (`version_id`) REFERENCES osu_beatmapset_versions(`version_id`)
                 )
                 """);

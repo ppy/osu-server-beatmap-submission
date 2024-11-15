@@ -5,8 +5,8 @@ using System.Globalization;
 using osu.Framework.Extensions;
 using osu.Game.IO.Archives;
 using osu.Server.BeatmapSubmission.Configuration;
+using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.API.Responses;
-using osu.Server.BeatmapSubmission.Models.Database;
 using SharpCompress.Writers;
 using SharpCompress.Writers.Zip;
 
@@ -82,7 +82,7 @@ namespace osu.Server.BeatmapSubmission.Services
             }
         }
 
-        public Task<Stream> PackageBeatmapSetFilesAsync(IEnumerable<osu_beatmapset_version_file> files) => Task.Run<Stream>(() =>
+        public Task<Stream> PackageBeatmapSetFilesAsync(IEnumerable<VersionedFile> files) => Task.Run<Stream>(() =>
         {
             var memoryStream = new MemoryStream();
 
@@ -90,10 +90,10 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 foreach (var file in files)
                 {
-                    string targetFilename = getPathToVersionedFile(BitConverter.ToString(file.sha2_hash).Replace("-", string.Empty).ToLowerInvariant());
+                    string targetFilename = getPathToVersionedFile(BitConverter.ToString(file.File.sha2_hash).Replace("-", string.Empty).ToLowerInvariant());
 
                     using var fileStream = File.OpenRead(targetFilename);
-                    zipWriter.Write(file.filename, fileStream);
+                    zipWriter.Write(file.VersionFile.filename, fileStream);
                 }
             }
 

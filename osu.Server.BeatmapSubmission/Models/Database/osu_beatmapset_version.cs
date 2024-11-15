@@ -7,9 +7,9 @@ namespace osu.Server.BeatmapSubmission.Models.Database
 {
     public class osu_beatmapset_version
     {
-        public uint beatmapset_id { get; set; }
         public ulong version_id { get; set; }
-        public DateTimeOffset uploaded_on { get; set; }
+        public uint beatmapset_id { get; set; }
+        public DateTimeOffset created_at { get; set; }
         public ulong? previous_version_id { get; set; }
     }
 }
