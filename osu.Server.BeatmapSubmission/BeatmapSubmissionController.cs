@@ -166,6 +166,7 @@ namespace osu.Server.BeatmapSubmission
                 return Forbid();
 
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
+            // TODO: double-check that the patched archive is actually meaningfully different from the previous one
             // TODO: ensure that after patching, all the `.osu`s that should be in the `.osz` ARE in the `.osz`, and ensure there are no EXTRA `.osu`s
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
             return NoContent();
@@ -234,6 +235,7 @@ namespace osu.Server.BeatmapSubmission
                 return Forbid();
 
             var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmapId, beatmapContents);
+            // TODO: double-check that the patched archive is actually meaningfully different from the previous one
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db);
             return NoContent();
         }
