@@ -21,9 +21,7 @@ namespace osu.Server.BeatmapSubmission
         private readonly IBeatmapStorage beatmapStorage;
         private readonly BeatmapPackagePatcher patcher;
 
-        public BeatmapSubmissionController(
-            IBeatmapStorage beatmapStorage,
-            BeatmapPackagePatcher patcher)
+        public BeatmapSubmissionController(IBeatmapStorage beatmapStorage, BeatmapPackagePatcher patcher)
         {
             this.beatmapStorage = beatmapStorage;
             this.patcher = patcher;

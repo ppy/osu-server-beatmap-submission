@@ -10,9 +10,7 @@ namespace osu.Server.BeatmapSubmission.Models.API.Responses
         public IEnumerable<BeatmapSetFile> Files { get; set; } = [];
     }
 
-    public record struct BeatmapSetFile(
-        string Filename,
-        string SHA2Hash)
+    public record struct BeatmapSetFile(string Filename, string SHA2Hash)
     {
         /// <summary>
         /// The name of the file.
