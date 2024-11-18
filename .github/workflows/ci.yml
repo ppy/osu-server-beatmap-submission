@@ -1,0 +1,68 @@
+on: [push, pull_request]
+name: Continuous Integration
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  inspect-code:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8.0.x
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore packages
+        run: dotnet restore
+
+      - name: CodeFileSanity
+        run: |
+          # TODO: Add ignore filters and GitHub Workflow Command Reporting in CFS. That way we don't have to do this workaround.
+          # FIXME: Suppress warnings from templates project
+          exit_code=0
+          while read -r line; do
+            if [[ ! -z "$line" ]]; then
+              echo "::error::$line"
+              exit_code=1
+            fi
+          done <<< $(dotnet codefilesanity)
+          exit $exit_code
+
+      - name: InspectCode
+        uses: JetBrains/ReSharper-InspectCode@v0.8
+        with:
+          build: true
+          solution: ./osu-server-beatmap-submission.sln
+          caches-home: inspectcode
+          verbosity: WARN
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8.0.x
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Docker Compose
+        run: docker compose up -d
+
+      - name: Test
+        run: dotnet test
