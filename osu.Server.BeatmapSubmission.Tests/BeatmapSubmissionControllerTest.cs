@@ -7,6 +7,7 @@ using Dapper;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using osu.Framework.Utils;
+using osu.Game.Beatmaps;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models.API.Requests;
 using osu.Server.BeatmapSubmission.Models.API.Responses;
@@ -185,16 +186,57 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestPutBeatmapSet_NewSet_BeatmapSetQuotaExceeded()
+        {
+            using var db = DatabaseAccess.GetConnection();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
+
+            for (int i = 0; i < 4; ++i)
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (2, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest { BeatmapsToCreate = 15 });
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            Assert.Contains("You have exceeded your submission cap", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        }
+
+        [Fact]
+        public async Task TestPutBeatmapSet_NewSet_InactiveBeatmapsArePurged()
+        {
+            using var db = DatabaseAccess.GetConnection();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
+
+            for (int i = 0; i < 4; ++i)
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (2, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest { BeatmapsToCreate = 15 });
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2");
+
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmapsets`", 1, CancellationToken);
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps`", 15, CancellationToken);
+        }
+
+        [Fact]
         public async Task TestPutBeatmapSet_ExistingSet()
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
-                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -1)", new { beatmapId = beatmapId });
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, 1)", new { beatmapId = beatmapId });
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest
@@ -251,10 +293,10 @@ namespace osu.Server.BeatmapSubmission.Tests
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
-                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -1)", new { beatmapId = beatmapId });
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, 1)", new { beatmapId = beatmapId });
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest
@@ -278,10 +320,10 @@ namespace osu.Server.BeatmapSubmission.Tests
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
-                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -1)", new { beatmapId = beatmapId });
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, 1)", new { beatmapId = beatmapId });
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest
@@ -303,10 +345,10 @@ namespace osu.Server.BeatmapSubmission.Tests
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
-                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -1)", new { beatmapId = beatmapId });
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, 1)", new { beatmapId = beatmapId });
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest
@@ -321,6 +363,42 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.False(response.IsSuccessStatusCode);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
             Assert.Equal("The beatmap set cannot contain more than 128 beatmaps.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        }
+
+        [Fact]
+        public async Task TestPutBeatmapSet_ExistingSet_BeatmapSetQuotaExceeded()
+        {
+            using var db = DatabaseAccess.GetConnection();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `osu_subscriber`) VALUES (1000, 'test', 'JP', '', '', '', '', 1)");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
+
+            for (int i = 0; i < 9; ++i)
+            {
+                await db.ExecuteAsync(
+                    @"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (@id, 1000, 'test user', @status, 0, 1, CURRENT_TIMESTAMP)",
+                    new
+                    {
+                        id = i + 1000,
+                        status = i == 0 ? BeatmapOnlineStatus.Graveyard : BeatmapOnlineStatus.WIP
+                    });
+            }
+
+            foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, 1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = 1000,
+                BeatmapsToCreate = 3,
+                BeatmapsToKeep = [5001, 5003, 5005],
+            });
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            Assert.Equal("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]
@@ -342,6 +420,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.False(response.IsSuccessStatusCode);
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
+
 
         [Fact]
         public async Task TestUploadFullPackage()

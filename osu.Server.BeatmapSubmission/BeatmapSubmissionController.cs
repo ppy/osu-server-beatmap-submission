@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using osu.Framework.Extensions;
+using osu.Game.Beatmaps;
 using osu.Game.IO.Archives;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models;
@@ -45,17 +46,15 @@ namespace osu.Server.BeatmapSubmission
         [ProducesResponseType(typeof(ErrorResponse), 422)]
         public async Task<IActionResult> PutBeatmapSetAsync([FromBody] PutBeatmapSetRequest request)
         {
+            uint userId = User.GetUserId();
+
             using var db = DatabaseAccess.GetConnection();
 
-            ErrorResponse? userError = await ensureUserCanUpload(db);
+            ErrorResponse? userError = await checkUserAccountStanding(db, userId);
             if (userError != null)
                 return userError.ToActionResult();
 
-            // TODO: clean up user's inactive maps
-            // TODO: check remaining map quota
             // TODO: create forum thread for description editing purposes if set is new
-
-            uint userId = User.GetUserId();
 
             if (await db.GetUserMonthlyPlaycountAsync(userId) < 5)
                 return new ErrorResponse("Thanks for your contribution, but please play the game first!").ToActionResult();
@@ -65,10 +64,20 @@ namespace osu.Server.BeatmapSubmission
 
             using var transaction = await db.BeginTransactionAsync();
 
+            await db.PurgeInactiveBeatmapSetsForUserAsync(userId, transaction);
+            (uint totalSlots, uint remainingSlots) = await getUploadQuota(db, userId, transaction);
+
             if (beatmapSetId == null)
             {
                 if (request.BeatmapsToKeep.Length != 0)
                     return new ErrorResponse("Cannot specify beatmaps to keep when creating a new beatmap set.").ToActionResult();
+
+                if (remainingSlots <= 0)
+                {
+                    return new ErrorResponse($"You have exceeded your submission cap (you are currently allowed {totalSlots} total unranked maps). "
+                                             + $"Please finish the maps you currently have submitted, or wait until your submissions expire automatically to the graveyard "
+                                             + $"(about 4 weeks).").ToActionResult();
+                }
 
                 string username = await db.GetUsernameAsync(userId, transaction);
                 beatmapSetId = await db.CreateBlankBeatmapSetAsync(userId, username, transaction);
@@ -82,6 +91,9 @@ namespace osu.Server.BeatmapSubmission
 
                 if (beatmapSet.user_id != userId)
                     return Forbid();
+
+                if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard && remainingSlots <= 0)
+                    return new ErrorResponse("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.").ToActionResult();
 
                 existingBeatmaps = (await db.GetBeatmapIdsInSetAsync(beatmapSetId.Value, transaction)).ToArray();
             }
@@ -137,11 +149,12 @@ namespace osu.Server.BeatmapSubmission
             // needs further testing
             IFormFile beatmapArchive)
         {
+            uint userId = User.GetUserId();
             // TODO: do all of the due diligence checks
 
             using var db = DatabaseAccess.GetConnection();
 
-            ErrorResponse? userError = await ensureUserCanUpload(db);
+            ErrorResponse? userError = await checkUserAccountStanding(db, userId);
             if (userError != null)
                 return userError.ToActionResult();
 
@@ -177,9 +190,10 @@ namespace osu.Server.BeatmapSubmission
             IFormFileCollection filesChanged,
             [FromForm] string[] filesDeleted)
         {
+            uint userId = User.GetUserId();
             using var db = DatabaseAccess.GetConnection();
 
-            ErrorResponse? userError = await ensureUserCanUpload(db);
+            ErrorResponse? userError = await checkUserAccountStanding(db, userId);
             if (userError != null)
                 return userError.ToActionResult();
 
@@ -215,9 +229,10 @@ namespace osu.Server.BeatmapSubmission
             [FromRoute] uint beatmapId,
             IFormFile beatmapContents)
         {
+            uint userId = User.GetUserId();
             using var db = DatabaseAccess.GetConnection();
 
-            ErrorResponse? userError = await ensureUserCanUpload(db);
+            ErrorResponse? userError = await checkUserAccountStanding(db, userId);
             if (userError != null)
                 return userError.ToActionResult();
 
@@ -237,10 +252,8 @@ namespace osu.Server.BeatmapSubmission
             return NoContent();
         }
 
-        private async Task<ErrorResponse?> ensureUserCanUpload(MySqlConnection connection, MySqlTransaction? transaction = null)
+        private static async Task<ErrorResponse?> checkUserAccountStanding(MySqlConnection connection, uint userId, MySqlTransaction? transaction = null)
         {
-            uint userId = User.GetUserId();
-
             if (await connection.IsUserRestrictedAsync(userId, transaction))
                 return new ErrorResponse("Your account is currently restricted.");
 
@@ -248,6 +261,15 @@ namespace osu.Server.BeatmapSubmission
                 return new ErrorResponse("You are unable to submit or update maps while silenced.");
 
             return null;
+        }
+
+        private static async Task<(uint totalSlots, uint remainingSlots)> getUploadQuota(MySqlConnection connection, uint userId, MySqlTransaction? transaction = null)
+        {
+            (uint unrankedCount, uint rankedCount) = await connection.GetUserBeatmapSetCountAsync(userId, transaction);
+            uint quota = await connection.IsUserSupporterAsync(userId, transaction)
+                ? 8 + Math.Min(12, rankedCount)
+                : 4 + Math.Min(4, rankedCount);
+            return (quota, (uint)Math.Max((int)quota - (int)unrankedCount, 0));
         }
 
         private async Task updateBeatmapSetFromArchiveAsync(uint beatmapSetId, Stream beatmapStream, MySqlConnection db)

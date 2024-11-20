@@ -64,6 +64,55 @@ namespace osu.Server.BeatmapSubmission
                 transaction) ?? 0;
         }
 
+        public static async Task PurgeInactiveBeatmapSetsForUserAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
+        {
+            uint[] beatmapSetIds = (await db.QueryAsync<uint>(@"SELECT `beatmapset_id` FROM `osu_beatmapsets` WHERE `user_id` = @user_id AND `active` = -1 AND `deleted_at` IS NULL",
+                new
+                {
+                    user_id = userId,
+                },
+                transaction)).ToArray();
+
+            await db.ExecuteAsync(@"DELETE FROM `osu_beatmaps` WHERE `beatmapset_id` IN @beatmapset_ids AND `user_id` = @user_id AND `deleted_at` IS NULL",
+                new
+                {
+                    beatmapset_ids = beatmapSetIds,
+                    user_id = userId,
+                }, transaction);
+            await db.ExecuteAsync(@"DELETE FROM `osu_beatmapsets` WHERE `user_id` = @user_id AND `active` = -1",
+                new
+                {
+                    user_id = userId,
+                },
+                transaction);
+        }
+
+        public static Task<(uint unranked, uint ranked)> GetUserBeatmapSetCountAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
+        {
+            return db.QuerySingleAsync<(uint unranked, uint ranked)>(
+                """
+                SELECT
+                    SUM(CASE WHEN `approved` IN (-1, 0) THEN 1 ELSE 0 END) AS `unranked`,
+                    SUM(CASE WHEN `approved` > 0 THEN 1 ELSE 0 END) AS `ranked`
+                FROM `osu_beatmapsets` WHERE `active` > 0 AND `deleted_at` IS NULL AND `user_id` = @user_id
+                """,
+                new
+                {
+                    user_id = userId,
+                },
+                transaction);
+        }
+
+        public static Task<bool> IsUserSupporterAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
+        {
+            return db.QuerySingleAsync<bool>(@"SELECT `osu_subscriber` FROM `phpbb_users` WHERE `user_id` = @user_id",
+                new
+                {
+                    user_id = userId,
+                },
+                transaction);
+        }
+
         public static Task<osu_beatmapset?> GetBeatmapSetAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
         {
             return db.QuerySingleOrDefaultAsync<osu_beatmapset?>(@"SELECT * FROM `osu_beatmapsets` WHERE `beatmapset_id` = @beatmapSetId",
