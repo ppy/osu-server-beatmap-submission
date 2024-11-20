@@ -52,7 +52,6 @@ namespace osu.Server.BeatmapSubmission
             if (userError != null)
                 return userError.ToActionResult();
 
-            // TODO: check difficulty limits (1 min, 128 max)
             // TODO: check playcount (`("SELECT sum(playcount) FROM osu_user_month_playcount WHERE user_id = $userId") < 5`)
             // TODO: clean up user's inactive maps
             // TODO: check remaining map quota
@@ -86,6 +85,12 @@ namespace osu.Server.BeatmapSubmission
 
             if (request.BeatmapsToKeep.Except(existingBeatmaps).Any())
                 return new ErrorResponse("One of the beatmaps to keep does not belong to the specified set.").ToActionResult();
+
+            uint totalBeatmapCount = (uint)request.BeatmapsToKeep.Length + request.BeatmapsToCreate;
+            if (totalBeatmapCount < 1)
+                return new ErrorResponse("The beatmap set must contain at least one beatmap.").ToActionResult();
+            if (totalBeatmapCount > 128)
+                return new ErrorResponse("The beatmap set cannot contain more than 128 beatmaps.").ToActionResult();
 
             foreach (uint beatmapId in existingBeatmaps.Except(request.BeatmapsToKeep))
                 await db.DeleteBeatmapAsync(beatmapId, transaction);
