@@ -36,12 +36,13 @@ namespace osu.Server.BeatmapSubmission
         /// <response code="200">The requested changes have been applied.</response>
         /// <response code="403">The user is not allowed to modify this beatmap set.</response>
         /// <response code="404">The request specified a beatmap set that does not yet exist.</response>
-        /// <response code="429">The request was incorrectly formed. Check returned error for details.</response>
+        /// <response code="422">The request was incorrectly formed, or could not be serviced due to violated invariants. Check returned error for details.</response>
         [HttpPut]
         [Route("beatmapsets")]
         [Consumes("application/json")]
         [Produces("application/json")]
         [ProducesResponseType(typeof(PutBeatmapSetResponse), 200)]
+        [ProducesResponseType(typeof(ErrorResponse), 422)]
         public async Task<IActionResult> PutBeatmapSetAsync([FromBody] PutBeatmapSetRequest request)
         {
             using var db = DatabaseAccess.GetConnection();
@@ -63,7 +64,7 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSetId == null)
             {
                 if (request.BeatmapsToKeep.Length != 0)
-                    return UnprocessableEntity("Cannot specify beatmaps to keep when creating a new beatmap set.");
+                    return new ErrorResponse("Cannot specify beatmaps to keep when creating a new beatmap set.").ToActionResult();
 
                 string username = await db.GetUsernameAsync(userId, transaction);
                 beatmapSetId = await db.CreateBlankBeatmapSetAsync(userId, username, transaction);
@@ -82,7 +83,7 @@ namespace osu.Server.BeatmapSubmission
             }
 
             if (request.BeatmapsToKeep.Except(existingBeatmaps).Any())
-                return UnprocessableEntity("One of the beatmaps to keep does not belong to the specified set.");
+                return new ErrorResponse("One of the beatmaps to keep does not belong to the specified set.").ToActionResult();
 
             foreach (uint beatmapId in existingBeatmaps.Except(request.BeatmapsToKeep))
                 await db.DeleteBeatmapAsync(beatmapId, transaction);
@@ -113,9 +114,11 @@ namespace osu.Server.BeatmapSubmission
         /// <response code="204">The package has been successfully uploaded.</response>
         /// <response code="403">The user is not allowed to modify this beatmap set.</response>
         /// <response code="404">The request specified a beatmap set that does not yet exist.</response>
+        /// <response code="422">The request was incorrectly formed, or could not be serviced due to violated invariants. Check returned error for details.</response>
         [HttpPut]
         [Route("beatmapsets/{beatmapSetId}")]
         [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(ErrorResponse), 422)]
         public async Task<IActionResult> UploadFullPackageAsync(
             [FromRoute] uint beatmapSetId,
             // TODO: this won't fly on production, biggest existing beatmap archives exceed buffering limits (`MultipartBodyLengthLimit` = 128MB specifically)
@@ -136,6 +139,7 @@ namespace osu.Server.BeatmapSubmission
                 return Forbid();
 
             using var beatmapStream = beatmapArchive.OpenReadStream();
+
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
             return NoContent();
         }
@@ -149,9 +153,11 @@ namespace osu.Server.BeatmapSubmission
         /// <response code="204">The package has been successfully patched.</response>
         /// <response code="403">The user is not allowed to modify this beatmap set.</response>
         /// <response code="404">The request specified a beatmap set that does not yet exist.</response>
+        /// <response code="422">The request was incorrectly formed, or could not be serviced due to violated invariants. Check returned error for details.</response>
         [HttpPatch]
         [Route("beatmapsets/{beatmapSetId}")]
         [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(ErrorResponse), 422)]
         public async Task<IActionResult> PatchPackageAsync(
             [FromRoute] uint beatmapSetId,
             IFormFileCollection filesChanged,
@@ -213,6 +219,7 @@ namespace osu.Server.BeatmapSubmission
         [HttpPatch]
         [Route("beatmapsets/{beatmapSetId}/beatmaps/{beatmapId}")]
         [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(ErrorResponse), 422)]
         public async Task<IActionResult> UploadGuestDifficultyAsync(
             [FromRoute] uint beatmapSetId,
             [FromRoute] uint beatmapId,
