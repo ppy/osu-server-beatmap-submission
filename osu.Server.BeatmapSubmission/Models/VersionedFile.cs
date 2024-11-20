@@ -5,9 +5,9 @@ using osu.Server.BeatmapSubmission.Models.Database;
 
 namespace osu.Server.BeatmapSubmission.Models
 {
-    public readonly struct VersionedFile(osu_beatmapset_file file, osu_beatmapset_version_file versionFile)
+    public readonly struct VersionedFile(beatmapset_file file, beatmapset_version_file versionFile)
     {
-        public osu_beatmapset_file File { get; } = file;
-        public osu_beatmapset_version_file VersionFile { get; } = versionFile;
+        public beatmapset_file File { get; } = file;
+        public beatmapset_version_file VersionFile { get; } = versionFile;
     }
 }
