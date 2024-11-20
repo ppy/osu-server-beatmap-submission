@@ -46,21 +46,24 @@ namespace osu.Server.BeatmapSubmission
         public async Task<IActionResult> PutBeatmapSetAsync([FromBody] PutBeatmapSetRequest request)
         {
             using var db = DatabaseAccess.GetConnection();
-            using var transaction = await db.BeginTransactionAsync();
 
-            ErrorResponse? userError = await ensureUserCanUpload(db, transaction);
+            ErrorResponse? userError = await ensureUserCanUpload(db);
             if (userError != null)
                 return userError.ToActionResult();
 
-            // TODO: check playcount (`("SELECT sum(playcount) FROM osu_user_month_playcount WHERE user_id = $userId") < 5`)
             // TODO: clean up user's inactive maps
             // TODO: check remaining map quota
             // TODO: create forum thread for description editing purposes if set is new
 
             uint userId = User.GetUserId();
 
+            if (await db.GetUserMonthlyPlaycountAsync(userId) < 5)
+                return new ErrorResponse("Thanks for your contribution, but please play the game first!").ToActionResult();
+
             uint? beatmapSetId = request.BeatmapSetID;
             uint[] existingBeatmaps = [];
+
+            using var transaction = await db.BeginTransactionAsync();
 
             if (beatmapSetId == null)
             {

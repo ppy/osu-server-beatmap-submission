@@ -53,6 +53,17 @@ namespace osu.Server.BeatmapSubmission
             return ban != null && ban.period != 0 && ban.EndTime > DateTimeOffset.Now;
         }
 
+        public static async Task<ulong> GetUserMonthlyPlaycountAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
+        {
+            return await db.QuerySingleAsync<ulong?>(
+                @"SELECT SUM(`playcount`) FROM `osu_user_month_playcount` WHERE `user_id` = @user_id",
+                new
+                {
+                    user_id = userId,
+                },
+                transaction) ?? 0;
+        }
+
         public static Task<osu_beatmapset?> GetBeatmapSetAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
         {
             return db.QuerySingleOrDefaultAsync<osu_beatmapset?>(@"SELECT * FROM `osu_beatmapsets` WHERE `beatmapset_id` = @beatmapSetId",

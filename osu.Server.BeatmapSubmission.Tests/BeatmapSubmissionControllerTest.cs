@@ -47,6 +47,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest { BeatmapsToCreate = 15 });
@@ -108,10 +109,28 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestPutBeatmapSet_UserWithTooLowPlaycountCannotSubmit()
+        {
+            using var db = DatabaseAccess.GetConnection();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 3)");
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest { BeatmapsToCreate = 15 });
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            Assert.Equal("Thanks for your contribution, but please play the game first!", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        }
+
+        [Fact]
         public async Task TestPutBeatmapSet_SilencedUserCanSubmitAfterSilenceExpires()
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
             await db.ExecuteAsync("INSERT INTO `osu_user_banhistory` (`user_id`, `ban_status`, `period`, `timestamp`) VALUES (2, 2, 86400, TIMESTAMPADD(DAY, -1, CURRENT_TIMESTAMP()))");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
@@ -129,6 +148,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest
@@ -149,6 +169,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest
@@ -168,6 +189,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -201,6 +223,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -226,6 +249,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -252,6 +276,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -276,6 +301,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -302,6 +328,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = DatabaseAccess.GetConnection();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest
