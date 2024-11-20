@@ -14,6 +14,7 @@ using osu.Server.BeatmapSubmission.Models.Database;
 using osu.Server.BeatmapSubmission.Services;
 using osu.Server.BeatmapSubmission.Tests.Resources;
 using osu.Server.QueueProcessor;
+using SharpCompress.Writers.Zip;
 
 namespace osu.Server.BeatmapSubmission.Tests
 {
@@ -251,6 +252,35 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal(7.5f, maniaBeatmap.diff_overall);
             Assert.Equal(5f, maniaBeatmap.diff_approach);
             Assert.Equal(3, maniaBeatmap.playmode);
+        }
+
+        [Fact]
+        public async Task TestUploadFullPackage_FailsOnEmptyPackage()
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+
+            using var memoryStream = new MemoryStream();
+
+            using (new ZipWriter(memoryStream, BeatmapPackagePatcher.DEFAULT_ZIP_WRITER_OPTIONS))
+            {
+            }
+
+            content.Add(new StreamContent(memoryStream), "beatmapArchive", osz_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal("The uploaded beatmap set must have at least one difficulty.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]
