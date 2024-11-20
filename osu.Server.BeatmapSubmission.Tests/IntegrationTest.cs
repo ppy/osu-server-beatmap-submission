@@ -34,6 +34,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             if (db.QueryFirstOrDefault<int?>("SELECT `count` FROM `osu_counts` WHERE name = 'is_production'") != null)
                 throw new InvalidOperationException("You have just attempted to run tests on production and wipe data. Rethink your life decisions.");
 
+            db.Execute("TRUNCATE TABLE `osu_user_banhistory`");
             db.Execute("TRUNCATE TABLE `phpbb_users`");
             db.Execute("TRUNCATE TABLE `osu_beatmaps`");
 

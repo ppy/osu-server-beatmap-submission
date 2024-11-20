@@ -20,6 +20,39 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
+        /// <seealso href="https://github.com/ppy/osu-web/blob/1fbc73baa8e8be6759b1cc4f4ab509d8ae53a165/app/Models/User.php#L1099-L1102"><c>isBanned()</c> in osu-web</seealso>
+        /// <seealso href="https://github.com/ppy/osu-web/blob/1fbc73baa8e8be6759b1cc4f4ab509d8ae53a165/app/Models/User.php#L1109-L1112"><c>isRestricted()</c> in osu-web</seealso>
+        public static async Task<bool> IsUserRestrictedAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
+        {
+            var standing = await db.QuerySingleAsync<(short user_type, short user_warnings)>(
+                @"SELECT `user_type`, `user_warnings` FROM `phpbb_users` WHERE `user_id` = @user_id",
+                new
+                {
+                    user_id = userId,
+                },
+                transaction);
+
+            return standing.user_type == 1 || standing.user_warnings > 0;
+        }
+
+        /// <remarks>
+        /// Contrary to the osu-web implementation, this does not check for restriction status too.
+        /// Use <see cref="IsUserRestrictedAsync"/> separately instead.
+        /// </remarks>
+        /// <seealso href="https://github.com/ppy/osu-web/blob/65ca10d9b137009c5a33876b4caef3453dfb0bc2/app/Models/User.php#L1114-L1127"><c>isSilenced()</c> in osu-web</seealso>
+        public static async Task<bool> IsUserSilencedAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
+        {
+            var ban = await db.QueryFirstOrDefaultAsync<osu_user_banhistory>(
+                @"SELECT * FROM `osu_user_banhistory` WHERE `user_id` = @user_id AND `ban_status` IN (1, 2) ORDER BY `timestamp` DESC",
+                new
+                {
+                    user_id = userId,
+                },
+                transaction);
+
+            return ban != null && ban.period != 0 && ban.EndTime > DateTimeOffset.Now;
+        }
+
         public static Task<osu_beatmapset?> GetBeatmapSetAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
         {
             return db.QuerySingleOrDefaultAsync<osu_beatmapset?>(@"SELECT * FROM `osu_beatmapsets` WHERE `beatmapset_id` = @beatmapSetId",

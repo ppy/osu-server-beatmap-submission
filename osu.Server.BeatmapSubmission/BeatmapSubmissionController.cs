@@ -48,8 +48,10 @@ namespace osu.Server.BeatmapSubmission
             using var db = DatabaseAccess.GetConnection();
             using var transaction = await db.BeginTransactionAsync();
 
-            // TODO: check silence state (https://github.com/ppy/osu-web/blob/master/app/Models/User.php#L1114-L1127)
-            // TODO: check restriction state (`SELECT user_warnings FROM phpbb_users WHERE user_id = $userId`)
+            ErrorResponse? userError = await ensureUserCanUpload(db, transaction);
+            if (userError != null)
+                return userError.ToActionResult();
+
             // TODO: check difficulty limits (1 min, 128 max)
             // TODO: check playcount (`("SELECT sum(playcount) FROM osu_user_month_playcount WHERE user_id = $userId") < 5`)
             // TODO: clean up user's inactive maps
@@ -131,6 +133,10 @@ namespace osu.Server.BeatmapSubmission
 
             using var db = DatabaseAccess.GetConnection();
 
+            ErrorResponse? userError = await ensureUserCanUpload(db);
+            if (userError != null)
+                return userError.ToActionResult();
+
             var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId);
             if (beatmapSet == null)
                 return NotFound();
@@ -165,6 +171,10 @@ namespace osu.Server.BeatmapSubmission
         {
             using var db = DatabaseAccess.GetConnection();
 
+            ErrorResponse? userError = await ensureUserCanUpload(db);
+            if (userError != null)
+                return userError.ToActionResult();
+
             var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId);
             if (beatmapSet == null)
                 return NotFound();
@@ -177,6 +187,59 @@ namespace osu.Server.BeatmapSubmission
             // TODO: ensure that after patching, all the `.osu`s that should be in the `.osz` ARE in the `.osz`, and ensure there are no EXTRA `.osu`s
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
             return NoContent();
+        }
+
+        /// <summary>
+        /// Upload a guest beatmap (difficulty) with the given beatmap ID to the set with the given ID
+        /// </summary>
+        /// <param name="beatmapSetId" example="241526">The ID of the beatmap set which the guest beatmap (difficulty) belongs to.</param>
+        /// <param name="beatmapId" example="557814">The ID of the guest beatmap (difficulty) to update.</param>
+        /// <param name="beatmapContents">The contents of the <c>.osu</c> file for the given guest beatmap (difficulty).</param>
+        /// <response code="204">The guest beatmap (difficulty) has been successfully updated.</response>
+        /// <response code="403">The user is not allowed to modify this beatmap (difficulty).</response>
+        /// <response code="404">The request specified a beatmap (difficulty) that does not yet exist.</response>
+        [HttpPatch]
+        [Route("beatmapsets/{beatmapSetId}/beatmaps/{beatmapId}")]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(typeof(ErrorResponse), 422)]
+        public async Task<IActionResult> UploadGuestDifficultyAsync(
+            [FromRoute] uint beatmapSetId,
+            [FromRoute] uint beatmapId,
+            IFormFile beatmapContents)
+        {
+            using var db = DatabaseAccess.GetConnection();
+
+            ErrorResponse? userError = await ensureUserCanUpload(db);
+            if (userError != null)
+                return userError.ToActionResult();
+
+            var beatmap = await db.GetBeatmapAsync(beatmapSetId, beatmapId);
+            if (beatmap == null)
+                return NotFound();
+
+            // TODO: ensure guest can't revive host's map (therefore using their quota)
+
+            // TODO: revisit once https://github.com/ppy/osu-web/pull/11377 goes in
+            if (beatmap.user_id != User.GetUserId())
+                return Forbid();
+
+            var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmapId, beatmapContents);
+            // TODO: double-check that the patched archive is actually meaningfully different from the previous one
+            await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db);
+            return NoContent();
+        }
+
+        private async Task<ErrorResponse?> ensureUserCanUpload(MySqlConnection connection, MySqlTransaction? transaction = null)
+        {
+            uint userId = User.GetUserId();
+
+            if (await connection.IsUserRestrictedAsync(userId, transaction))
+                return new ErrorResponse("Your account is currently restricted.");
+
+            if (await connection.IsUserSilencedAsync(userId, transaction))
+                return new ErrorResponse("You are unable to submit or update maps while silenced.");
+
+            return null;
         }
 
         private async Task updateBeatmapSetFromArchiveAsync(uint beatmapSetId, Stream beatmapStream, MySqlConnection db)
@@ -205,42 +268,6 @@ namespace osu.Server.BeatmapSubmission
             await transaction.CommitAsync();
             // TODO: the ACID implications on this happening post-commit are... interesting... not sure anything can be done better?
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
-        }
-
-        /// <summary>
-        /// Upload a guest beatmap (difficulty) with the given beatmap ID to the set with the given ID
-        /// </summary>
-        /// <param name="beatmapSetId" example="241526">The ID of the beatmap set which the guest beatmap (difficulty) belongs to.</param>
-        /// <param name="beatmapId" example="557814">The ID of the guest beatmap (difficulty) to update.</param>
-        /// <param name="beatmapContents">The contents of the <c>.osu</c> file for the given guest beatmap (difficulty).</param>
-        /// <response code="204">The guest beatmap (difficulty) has been successfully updated.</response>
-        /// <response code="403">The user is not allowed to modify this beatmap (difficulty).</response>
-        /// <response code="404">The request specified a beatmap (difficulty) that does not yet exist.</response>
-        [HttpPatch]
-        [Route("beatmapsets/{beatmapSetId}/beatmaps/{beatmapId}")]
-        [ProducesResponseType(204)]
-        [ProducesResponseType(typeof(ErrorResponse), 422)]
-        public async Task<IActionResult> UploadGuestDifficultyAsync(
-            [FromRoute] uint beatmapSetId,
-            [FromRoute] uint beatmapId,
-            IFormFile beatmapContents)
-        {
-            using var db = DatabaseAccess.GetConnection();
-
-            var beatmap = await db.GetBeatmapAsync(beatmapSetId, beatmapId);
-            if (beatmap == null)
-                return NotFound();
-
-            // TODO: ensure guest can't revive host's map (therefore using their quota)
-
-            // TODO: revisit once https://github.com/ppy/osu-web/pull/11377 goes in
-            if (beatmap.user_id != User.GetUserId())
-                return Forbid();
-
-            var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmapId, beatmapContents);
-            // TODO: double-check that the patched archive is actually meaningfully different from the previous one
-            await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db);
-            return NoContent();
         }
 
         /// <summary>
