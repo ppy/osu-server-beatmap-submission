@@ -257,7 +257,7 @@ namespace osu.Server.BeatmapSubmission
         {
             using var db = DatabaseAccess.GetConnection();
 
-            (osu_beatmapset_version version, VersionedFile[] files)? versionInfo = await db.GetBeatmapsetVersionAsync(beatmapSetId, versionId);
+            (beatmapset_version version, VersionedFile[] files)? versionInfo = await db.GetBeatmapsetVersionAsync(beatmapSetId, versionId);
 
             if (versionInfo == null)
                 return NotFound();

@@ -5,10 +5,10 @@
 
 namespace osu.Server.BeatmapSubmission.Models.Database
 {
-    public class osu_beatmapset_file
+    public class beatmapset_version_file
     {
         public ulong file_id { get; set; }
-        public byte[] sha2_hash { get; set; } = new byte[32];
-        public uint file_size { get; set; }
+        public ulong version_id { get; set; }
+        public string filename { get; set; } = string.Empty;
     }
 }

@@ -30,12 +30,12 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 var stream = archiveReader.GetStream(filename);
                 files.Add(new VersionedFile(
-                    new osu_beatmapset_file
+                    new beatmapset_file
                     {
                         sha2_hash = SHA256.HashData(stream),
                         file_size = (uint)stream.Length,
                     },
-                    new osu_beatmapset_version_file
+                    new beatmapset_version_file
                     {
                         filename = filename,
                     }
