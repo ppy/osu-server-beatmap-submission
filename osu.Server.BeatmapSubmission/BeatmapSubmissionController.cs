@@ -153,7 +153,6 @@ namespace osu.Server.BeatmapSubmission
             IFormFile beatmapArchive)
         {
             uint userId = User.GetUserId();
-            // TODO: do all of the due diligence checks
 
             using var db = DatabaseAccess.GetConnection();
 
