@@ -18,6 +18,12 @@ namespace osu.Server.BeatmapSubmission.Services
 {
     public static class BeatmapPackageParser
     {
+        public static readonly HashSet<string> INVALID_EXTENSIONS = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".exe", ".cmd", ".bat", ".sh", ".scr", ".doc", ".docx", ".docm", ".hta", ".htm", ".html", ".js", ".jar", ".vbs", ".vb", ".pdf", ".sfx", ".dll", ".py",
+            ".cer", ".apk", ".bin", ".msi", ".wsf", ".xls", ".xlsx", ".xlsm", ".ppt", ".pptx", ".pptm",
+        };
+
         public static BeatmapPackageParseResult Parse(uint beatmapSetId, ArchiveReader archiveReader)
         {
             string[] filenames = archiveReader.Filenames.ToArray();
@@ -28,6 +34,10 @@ namespace osu.Server.BeatmapSubmission.Services
 
             foreach (string filename in filenames)
             {
+                string extension = Path.GetExtension(filename);
+                if (INVALID_EXTENSIONS.Contains(extension))
+                    throw new InvariantException($"Beatmap contains a dangerous file type ({extension})");
+
                 var stream = archiveReader.GetStream(filename);
                 files.Add(new VersionedFile(
                     new beatmapset_file

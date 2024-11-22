@@ -15,6 +15,7 @@ using osu.Server.BeatmapSubmission.Models.Database;
 using osu.Server.BeatmapSubmission.Services;
 using osu.Server.BeatmapSubmission.Tests.Resources;
 using osu.Server.QueueProcessor;
+using SharpCompress.Writers;
 using SharpCompress.Writers.Zip;
 
 namespace osu.Server.BeatmapSubmission.Tests
@@ -609,6 +610,35 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestUploadFullPackage_FailsOnPackageWithSuspiciousFile()
+        {
+            using var db = DatabaseAccess.GetConnection();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+
+            using var memoryStream = new MemoryStream();
+
+            using (var zipWriter = new ZipWriter(memoryStream, BeatmapPackagePatcher.DEFAULT_ZIP_WRITER_OPTIONS))
+                zipWriter.Write("bad.dll", new MemoryStream("i am a bad file >:)"u8.ToArray()));
+
+            content.Add(new StreamContent(memoryStream), "beatmapArchive", osz_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Contains("Beatmap contains a dangerous file type", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        }
+
+        [Fact]
         public async Task TestPatchPackage()
         {
             using var db = DatabaseAccess.GetConnection();
@@ -701,6 +731,35 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.False(response.IsSuccessStatusCode);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
             Assert.Equal("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        }
+
+        [Fact]
+        public async Task TestPatchPackage_FailsOnSuspiciousFileTypes()
+        {
+            using var db = DatabaseAccess.GetConnection();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var osuFileStream = TestResources.GetResource(osu_filename)!;
+            content.Add(new StreamContent(osuFileStream), "filesChanged", "suspicious.PY");
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            Assert.Contains("Beatmap contains a dangerous file type", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]
@@ -825,6 +884,37 @@ namespace osu.Server.BeatmapSubmission.Tests
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task TestSubmitGuestDifficulty_FailsOnSuspiciousFileTypes()
+        {
+            using var db = DatabaseAccess.GetConnection();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (557810, 2000, 241526, -1)");
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var osuFileStream = TestResources.GetResource(osu_filename)!;
+            content.Add(new StreamContent(osuFileStream), "beatmapContents", "suspicious.doc");
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            Assert.Contains("Beatmap contains a dangerous file type", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         public override void Dispose()

@@ -66,7 +66,6 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 foreach (string file in Directory.EnumerateFiles(tempDirectory.FullName, "*", SearchOption.AllDirectories))
                 {
-                    // TODO: screen for dodgy file types and refuse to package if anything is suspicious
                     using var stream = File.OpenRead(file);
                     writer.Write(Path.GetRelativePath(tempDirectory.FullName, file), stream);
                 }
