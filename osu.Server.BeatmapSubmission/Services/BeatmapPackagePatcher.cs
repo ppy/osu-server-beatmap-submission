@@ -2,9 +2,9 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using osu.Framework.Extensions;
-using osu.Game.Beatmaps.Formats;
-using osu.Game.IO;
 using osu.Game.IO.Archives;
+using osu.Server.BeatmapSubmission.Models;
+using osu.Server.BeatmapSubmission.Models.Database;
 using SharpCompress.Common;
 using SharpCompress.Writers;
 using SharpCompress.Writers.Zip;
@@ -66,7 +66,6 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 foreach (string file in Directory.EnumerateFiles(tempDirectory.FullName, "*", SearchOption.AllDirectories))
                 {
-                    // TODO: screen for dodgy file types and refuse to package if anything is suspicious
                     using var stream = File.OpenRead(file);
                     writer.Write(Path.GetRelativePath(tempDirectory.FullName, file), stream);
                 }
@@ -77,32 +76,22 @@ namespace osu.Server.BeatmapSubmission.Services
 
         public async Task<MemoryStream> PatchBeatmapAsync(
             uint beatmapSetId,
-            uint beatmapId,
+            osu_beatmap beatmap,
             IFormFile beatmapContents)
         {
             var tempDirectory = Directory.CreateTempSubdirectory($"bss_{beatmapSetId}");
             await beatmapStorage.ExtractBeatmapSetAsync(beatmapSetId, tempDirectory.FullName);
 
-            string? existingBeatmapFilename = null;
+            if (beatmap.filename == null)
+                throw new InvalidOperationException("Could not find the old .osu file for the beatmap being modified.");
 
-            foreach (string file in Directory.EnumerateFiles(tempDirectory.FullName, "*.osu", SearchOption.AllDirectories))
-            {
-                using var stream = File.OpenRead(file);
-                var decoded = new LegacyBeatmapDecoder().Decode(new LineBufferedReader(stream));
+            File.Delete(Path.Combine(tempDirectory.FullName, beatmap.filename));
 
-                if (decoded.BeatmapInfo.OnlineID == beatmapId)
-                {
-                    existingBeatmapFilename = file;
-                    break;
-                }
-            }
+            string targetFilename = Path.Combine(tempDirectory.FullName, beatmapContents.FileName);
+            if (File.Exists(targetFilename))
+                throw new InvariantException($"Chosen filename conflicts with another existing file ({beatmapContents.FileName}).");
 
-            if (existingBeatmapFilename == null)
-                throw new InvalidOperationException("Could not find the old .osu file for the beatmap being modified!");
-
-            File.Delete(existingBeatmapFilename);
-
-            using (var file = File.OpenWrite(Path.Combine(tempDirectory.FullName, beatmapContents.FileName)))
+            using (var file = File.OpenWrite(targetFilename))
             {
                 using var beatmapStream = beatmapContents.OpenReadStream();
                 await beatmapStream.CopyToAsync(file);

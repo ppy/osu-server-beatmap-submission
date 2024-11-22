@@ -14,6 +14,6 @@ namespace osu.Server.BeatmapSubmission.Services
 
         Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory);
 
-        Task<Stream> PackageBeatmapSetFilesAsync(IEnumerable<VersionedFile> files);
+        Task<Stream> PackageBeatmapSetFilesAsync(IEnumerable<PackageFile> files);
     }
 }
