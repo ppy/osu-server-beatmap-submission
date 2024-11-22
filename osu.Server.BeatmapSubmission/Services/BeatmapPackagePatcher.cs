@@ -5,6 +5,7 @@ using osu.Framework.Extensions;
 using osu.Game.Beatmaps.Formats;
 using osu.Game.IO;
 using osu.Game.IO.Archives;
+using osu.Server.BeatmapSubmission.Models;
 using SharpCompress.Common;
 using SharpCompress.Writers;
 using SharpCompress.Writers.Zip;
@@ -97,11 +98,15 @@ namespace osu.Server.BeatmapSubmission.Services
             }
 
             if (existingBeatmapFilename == null)
-                throw new InvalidOperationException("Could not find the old .osu file for the beatmap being modified!");
+                throw new InvalidOperationException("Could not find the old .osu file for the beatmap being modified.");
 
             File.Delete(existingBeatmapFilename);
 
-            using (var file = File.OpenWrite(Path.Combine(tempDirectory.FullName, beatmapContents.FileName)))
+            string targetFilename = Path.Combine(tempDirectory.FullName, beatmapContents.FileName);
+            if (File.Exists(targetFilename))
+                throw new InvariantException($"Chosen filename conflicts with another existing file ({beatmapContents.FileName}).");
+
+            using (var file = File.OpenWrite(targetFilename))
             {
                 using var beatmapStream = beatmapContents.OpenReadStream();
                 await beatmapStream.CopyToAsync(file);
