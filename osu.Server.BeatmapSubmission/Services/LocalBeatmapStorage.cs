@@ -82,7 +82,7 @@ namespace osu.Server.BeatmapSubmission.Services
             }
         }
 
-        public Task<Stream> PackageBeatmapSetFilesAsync(IEnumerable<VersionedFile> files) => Task.Run<Stream>(() =>
+        public Task<Stream> PackageBeatmapSetFilesAsync(IEnumerable<PackageFile> files) => Task.Run<Stream>(() =>
         {
             var memoryStream = new MemoryStream();
 

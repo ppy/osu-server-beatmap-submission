@@ -275,7 +275,7 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
                 return new ErrorResponse("The beatmap set is in the graveyard. Please ask the set owner to revive it first.").ToActionResult();
 
-            var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmapId, beatmapContents);
+            var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmap, beatmapContents);
             // TODO: double-check that the patched archive is actually meaningfully different from the previous one
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db);
             return NoContent();
@@ -307,22 +307,30 @@ namespace osu.Server.BeatmapSubmission
             var parseResult = BeatmapPackageParser.Parse(beatmapSetId, archiveReader);
             using var transaction = await db.BeginTransactionAsync();
 
-            // TODO: ensure these actually belong to the beatmap set
-            foreach (var beatmapRow in parseResult.Beatmaps)
-                await db.UpdateBeatmapAsync(beatmapRow, transaction);
-
-            await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
+            HashSet<uint> beatmapIds = (await db.GetBeatmapIdsInSetAsync(beatmapSetId, transaction)).ToHashSet();
 
             foreach (var versionedFile in parseResult.Files)
                 versionedFile.VersionFile.file_id = await db.InsertBeatmapsetFileAsync(versionedFile.File, transaction);
 
             ulong versionId = await db.CreateBeatmapsetVersionAsync(beatmapSetId, transaction);
 
-            foreach (var versionedFile in parseResult.Files)
+            foreach (var packageFile in parseResult.Files)
             {
-                versionedFile.VersionFile.version_id = versionId;
-                await db.InsertBeatmapsetVersionFileAsync(versionedFile.VersionFile, transaction);
+                packageFile.VersionFile.version_id = versionId;
+                await db.InsertBeatmapsetVersionFileAsync(packageFile.VersionFile, transaction);
+
+                if (packageFile.BeatmapContent is BeatmapContent content)
+                {
+                    if (!beatmapIds.Remove((uint)content.Beatmap.BeatmapInfo.OnlineID))
+                        throw new InvariantException($"Beatmap has invalid ID inside ({packageFile.VersionFile.filename}).");
+
+                    await db.UpdateBeatmapAsync(content.GetDatabaseRow(), transaction);
+                }
+
+                // TODO: check if there are any beatmap IDs left and throw if so
             }
+
+            await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
 
             await transaction.CommitAsync();
             // TODO: the ACID implications on this happening post-commit are... interesting... not sure anything can be done better?
@@ -350,7 +358,7 @@ namespace osu.Server.BeatmapSubmission
         {
             using var db = DatabaseAccess.GetConnection();
 
-            (beatmapset_version version, VersionedFile[] files)? versionInfo = await db.GetBeatmapsetVersionAsync(beatmapSetId, versionId);
+            (beatmapset_version version, PackageFile[] files)? versionInfo = await db.GetBeatmapsetVersionAsync(beatmapSetId, versionId);
 
             if (versionInfo == null)
                 return NotFound();

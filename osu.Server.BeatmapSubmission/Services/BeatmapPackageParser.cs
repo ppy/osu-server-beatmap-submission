@@ -28,9 +28,7 @@ namespace osu.Server.BeatmapSubmission.Services
         {
             string[] filenames = archiveReader.Filenames.ToArray();
 
-            var beatmaps = new List<BeatmapContent>();
-
-            var files = new List<VersionedFile>(filenames.Length);
+            var files = new List<PackageFile>(filenames.Length);
 
             foreach (string filename in filenames)
             {
@@ -39,18 +37,17 @@ namespace osu.Server.BeatmapSubmission.Services
                     throw new InvariantException($"Beatmap contains a dangerous file type ({extension})");
 
                 var stream = archiveReader.GetStream(filename);
+                BeatmapContent? beatmapContent = null;
 
                 if (extension.Equals(".osu", StringComparison.OrdinalIgnoreCase))
                 {
-                    var content = getBeatmapContent(filename, stream);
+                    beatmapContent = getBeatmapContent(filename, stream);
 
-                    if (content.Beatmap.BeatmapInfo.BeatmapSet!.OnlineID != beatmapSetId)
+                    if (beatmapContent.Beatmap.BeatmapInfo.BeatmapSet!.OnlineID != beatmapSetId)
                         throw new InvariantException($"Beatmap has invalid beatmap set ID inside ({filename})");
-
-                    beatmaps.Add(content);
                 }
 
-                files.Add(new VersionedFile(
+                files.Add(new PackageFile(
                     new beatmapset_file
                     {
                         sha2_hash = SHA256.HashData(stream),
@@ -59,16 +56,15 @@ namespace osu.Server.BeatmapSubmission.Services
                     new beatmapset_version_file
                     {
                         filename = filename,
-                    }
+                    },
+                    beatmapContent
                 ));
             }
 
-            // TODO: ensure the beatmaps have correct online IDs inside
+            var beatmapSetRow = constructDatabaseRowForBeatmapset(beatmapSetId, archiveReader,
+                files.Select(f => f.BeatmapContent).Where(c => c != null).ToArray()!);
 
-            osu_beatmap[] beatmapRows = beatmaps.Select(constructDatabaseRowForBeatmap).ToArray();
-            var beatmapSetRow = constructDatabaseRowForBeatmapset(beatmapSetId, archiveReader, beatmaps);
-
-            return new BeatmapPackageParseResult(beatmapSetRow, beatmapRows, files.ToArray());
+            return new BeatmapPackageParseResult(beatmapSetRow, files.ToArray());
         }
 
         private static BeatmapContent getBeatmapContent(string filePath, Stream contents)
@@ -77,30 +73,6 @@ namespace osu.Server.BeatmapSubmission.Services
             var beatmap = decoder.Decode(new LineBufferedReader(contents));
 
             return new BeatmapContent(Path.GetFileName(filePath), contents.ComputeMD5Hash(), beatmap);
-        }
-
-        private static osu_beatmap constructDatabaseRowForBeatmap(BeatmapContent beatmapContent)
-        {
-            float beatLength = (float)beatmapContent.Beatmap.GetMostCommonBeatLength();
-
-            var result = new osu_beatmap
-            {
-                beatmap_id = (uint)beatmapContent.Beatmap.BeatmapInfo.OnlineID,
-                filename = beatmapContent.Filename,
-                checksum = beatmapContent.MD5,
-                version = beatmapContent.Beatmap.BeatmapInfo.DifficultyName,
-                diff_drain = beatmapContent.Beatmap.Difficulty.DrainRate,
-                diff_size = beatmapContent.Beatmap.Difficulty.CircleSize,
-                diff_overall = beatmapContent.Beatmap.Difficulty.OverallDifficulty,
-                diff_approach = beatmapContent.Beatmap.Difficulty.ApproachRate,
-                bpm = beatLength > 0 ? 60000 / beatLength : 0,
-                total_length = (uint)(beatmapContent.Beatmap.CalculatePlayableLength() / 1000),
-                hit_length = (uint)(beatmapContent.Beatmap.CalculateDrainLength() / 1000),
-                playmode = (ushort)beatmapContent.Beatmap.BeatmapInfo.Ruleset.OnlineID,
-            };
-
-            countObjectsByType(beatmapContent.Beatmap, result);
-            return result;
         }
 
         private static osu_beatmapset constructDatabaseRowForBeatmapset(uint beatmapSetId, ArchiveReader archiveReader, ICollection<BeatmapContent> beatmaps)
@@ -162,6 +134,33 @@ namespace osu.Server.BeatmapSubmission.Services
 
             return distinctValues.Single();
         }
+    }
+
+    public record BeatmapContent(string Filename, string MD5, Beatmap Beatmap)
+    {
+        public osu_beatmap GetDatabaseRow()
+        {
+            float beatLength = (float)Beatmap.GetMostCommonBeatLength();
+
+            var result = new osu_beatmap
+            {
+                beatmap_id = (uint)Beatmap.BeatmapInfo.OnlineID,
+                filename = Filename,
+                checksum = MD5,
+                version = Beatmap.BeatmapInfo.DifficultyName,
+                diff_drain = Beatmap.Difficulty.DrainRate,
+                diff_size = Beatmap.Difficulty.CircleSize,
+                diff_overall = Beatmap.Difficulty.OverallDifficulty,
+                diff_approach = Beatmap.Difficulty.ApproachRate,
+                bpm = beatLength > 0 ? 60000 / beatLength : 0,
+                total_length = (uint)(Beatmap.CalculatePlayableLength() / 1000),
+                hit_length = (uint)(Beatmap.CalculateDrainLength() / 1000),
+                playmode = (ushort)Beatmap.BeatmapInfo.Ruleset.OnlineID,
+            };
+
+            countObjectsByType(Beatmap, result);
+            return result;
+        }
 
         private static void countObjectsByType(Beatmap beatmap, osu_beatmap result)
         {
@@ -176,12 +175,9 @@ namespace osu.Server.BeatmapSubmission.Services
                 result.countTotal += 1;
             }
         }
-
-        private record BeatmapContent(string Filename, string MD5, Beatmap Beatmap);
     }
 
     public record struct BeatmapPackageParseResult(
         osu_beatmapset BeatmapSet,
-        osu_beatmap[] Beatmaps,
-        VersionedFile[] Files);
+        PackageFile[] Files);
 }
