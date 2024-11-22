@@ -326,9 +326,10 @@ namespace osu.Server.BeatmapSubmission
 
                     await db.UpdateBeatmapAsync(content.GetDatabaseRow(), transaction);
                 }
-
-                // TODO: check if there are any beatmap IDs left and throw if so
             }
+
+            if (beatmapIds.Count > 0)
+                throw new InvariantException($"Beatmap package is missing .osu files for beatmaps with IDs: {string.Join(", ", beatmapIds)}");
 
             await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
 
