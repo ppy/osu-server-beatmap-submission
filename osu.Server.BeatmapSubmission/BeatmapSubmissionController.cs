@@ -92,6 +92,9 @@ namespace osu.Server.BeatmapSubmission
                 if (beatmapSet.user_id != userId)
                     return Forbid();
 
+                if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
+                    return Forbid();
+
                 if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard && remainingSlots <= 0)
                     return new ErrorResponse("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.").ToActionResult();
 
@@ -165,6 +168,9 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet.user_id != User.GetUserId())
                 return Forbid();
 
+            if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
+                return Forbid();
+
             using var beatmapStream = beatmapArchive.OpenReadStream();
 
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
@@ -204,6 +210,9 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet.user_id != User.GetUserId())
                 return Forbid();
 
+            if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
+                return Forbid();
+
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
             // TODO: double-check that the patched archive is actually meaningfully different from the previous one
             // TODO: ensure that after patching, all the `.osu`s that should be in the `.osz` ARE in the `.osz`, and ensure there are no EXTRA `.osu`s
@@ -236,11 +245,15 @@ namespace osu.Server.BeatmapSubmission
             if (userError != null)
                 return userError.ToActionResult();
 
+            var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId);
             var beatmap = await db.GetBeatmapAsync(beatmapSetId, beatmapId);
-            if (beatmap == null)
+            if (beatmapSet == null || beatmap == null)
                 return NotFound();
 
             // TODO: ensure guest can't revive host's map (therefore using their quota)
+
+            if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
+                return Forbid();
 
             // TODO: revisit once https://github.com/ppy/osu-web/pull/11377 goes in
             if (beatmap.user_id != User.GetUserId())
