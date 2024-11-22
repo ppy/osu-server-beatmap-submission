@@ -171,6 +171,14 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
                 return Forbid();
 
+            if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
+            {
+                (_, uint remainingSlots) = await getUploadQuota(db, userId);
+                if (remainingSlots <= 0)
+                    return new ErrorResponse("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.").ToActionResult();
+                // TODO: revive the map otherwise
+            }
+
             using var beatmapStream = beatmapArchive.OpenReadStream();
 
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
@@ -213,6 +221,14 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
                 return Forbid();
 
+            if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
+            {
+                (_, uint remainingSlots) = await getUploadQuota(db, userId);
+                if (remainingSlots <= 0)
+                    return new ErrorResponse("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.").ToActionResult();
+                // TODO: revive the map otherwise
+            }
+
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
             // TODO: double-check that the patched archive is actually meaningfully different from the previous one
             // TODO: ensure that after patching, all the `.osu`s that should be in the `.osz` ARE in the `.osz`, and ensure there are no EXTRA `.osu`s
@@ -250,14 +266,15 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet == null || beatmap == null)
                 return NotFound();
 
-            // TODO: ensure guest can't revive host's map (therefore using their quota)
-
             if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
                 return Forbid();
 
             // TODO: revisit once https://github.com/ppy/osu-web/pull/11377 goes in
             if (beatmap.user_id != User.GetUserId())
                 return Forbid();
+
+            if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
+                return new ErrorResponse("The beatmap set is in the graveyard. Please ask the set owner to revive it first.").ToActionResult();
 
             var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmapId, beatmapContents);
             // TODO: double-check that the patched archive is actually meaningfully different from the previous one
