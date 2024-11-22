@@ -28,7 +28,7 @@ namespace osu.Server.BeatmapSubmission.Services
         {
             string[] filenames = archiveReader.Filenames.ToArray();
 
-            BeatmapContent[] beatmaps = getBeatmapContent(archiveReader, filenames).ToArray();
+            var beatmaps = new List<BeatmapContent>();
 
             var files = new List<VersionedFile>(filenames.Length);
 
@@ -39,6 +39,17 @@ namespace osu.Server.BeatmapSubmission.Services
                     throw new InvariantException($"Beatmap contains a dangerous file type ({extension})");
 
                 var stream = archiveReader.GetStream(filename);
+
+                if (extension.Equals(".osu", StringComparison.OrdinalIgnoreCase))
+                {
+                    var content = getBeatmapContent(filename, stream);
+
+                    if (content.Beatmap.BeatmapInfo.BeatmapSet!.OnlineID != beatmapSetId)
+                        throw new InvariantException($"Beatmap has invalid beatmap set ID inside ({filename})");
+
+                    beatmaps.Add(content);
+                }
+
                 files.Add(new VersionedFile(
                     new beatmapset_file
                     {
@@ -60,16 +71,12 @@ namespace osu.Server.BeatmapSubmission.Services
             return new BeatmapPackageParseResult(beatmapSetRow, beatmapRows, files.ToArray());
         }
 
-        private static IEnumerable<BeatmapContent> getBeatmapContent(ArchiveReader archiveReader, string[] filenames)
+        private static BeatmapContent getBeatmapContent(string filePath, Stream contents)
         {
-            foreach (string file in filenames.Where(filename => Path.GetExtension(filename).Equals(".osu", StringComparison.OrdinalIgnoreCase)))
-            {
-                using var contents = archiveReader.GetStream(file);
-                var decoder = new LegacyBeatmapDecoder();
-                var beatmap = decoder.Decode(new LineBufferedReader(contents));
+            var decoder = new LegacyBeatmapDecoder();
+            var beatmap = decoder.Decode(new LineBufferedReader(contents));
 
-                yield return new BeatmapContent(Path.GetFileName(file), contents.ComputeMD5Hash(), beatmap);
-            }
+            return new BeatmapContent(Path.GetFileName(filePath), contents.ComputeMD5Hash(), beatmap);
         }
 
         private static osu_beatmap constructDatabaseRowForBeatmap(BeatmapContent beatmapContent)
@@ -96,9 +103,9 @@ namespace osu.Server.BeatmapSubmission.Services
             return result;
         }
 
-        private static osu_beatmapset constructDatabaseRowForBeatmapset(uint beatmapSetId, ArchiveReader archiveReader, BeatmapContent[] beatmaps)
+        private static osu_beatmapset constructDatabaseRowForBeatmapset(uint beatmapSetId, ArchiveReader archiveReader, ICollection<BeatmapContent> beatmaps)
         {
-            if (beatmaps.Length == 0)
+            if (beatmaps.Count == 0)
                 throw new InvariantException("The uploaded beatmap set must have at least one difficulty.");
 
             float firstBeatLength = (float)beatmaps.First().Beatmap.GetMostCommonBeatLength();
