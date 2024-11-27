@@ -29,8 +29,6 @@ namespace osu.Server.BeatmapSubmission
             this.patcher = patcher;
         }
 
-        // TODO: accept pending/WIP user choice somewhere
-
         /// <summary>
         /// Create a new beatmap set, or add/remove beatmaps from an existing beatmap set
         /// </summary>
@@ -120,6 +118,8 @@ namespace osu.Server.BeatmapSubmission
                 uint beatmapId = await db.CreateBlankBeatmapAsync(userId, beatmapSetId.Value, transaction);
                 beatmapIds.Add(beatmapId);
             }
+
+            await db.SetBeatmapSetOnlineStatusAsync(beatmapSetId.Value, (BeatmapOnlineStatus)request.Target, transaction);
 
             await transaction.CommitAsync();
 
