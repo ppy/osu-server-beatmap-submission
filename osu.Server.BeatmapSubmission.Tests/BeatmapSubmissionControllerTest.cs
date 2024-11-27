@@ -7,6 +7,7 @@ using System.Text;
 using Dapper;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using osu.Framework.Extensions;
 using osu.Framework.Utils;
 using osu.Game.Beatmaps;
@@ -43,6 +44,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                 {
                     services.AddTransient<IBeatmapStorage>(_ => beatmapStorage);
                     services.AddTransient<BeatmapPackagePatcher>();
+                    services.AddTransient<ILegacyIO>(_ => new Mock<ILegacyIO>().Object);
                 });
             }).CreateClient();
         }

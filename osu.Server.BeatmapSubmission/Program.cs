@@ -41,6 +41,8 @@ namespace osu.Server.BeatmapSubmission
                 {
                     builder.Services.AddTransient<IBeatmapStorage, LocalBeatmapStorage>();
                     builder.Services.AddTransient<BeatmapPackagePatcher>();
+                    builder.Services.AddHttpClient();
+                    builder.Services.AddTransient<ILegacyIO, LegacyIO>();
                     builder.Services.AddSwaggerGen(c =>
                     {
                         c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, Assembly.GetExecutingAssembly().GetName().Name + ".xml"));
@@ -52,6 +54,9 @@ namespace osu.Server.BeatmapSubmission
                 case "Production":
                 {
                     // TODO: S3-based beatmap storage
+                    builder.Services.AddTransient<BeatmapPackagePatcher>();
+                    builder.Services.AddHttpClient();
+                    builder.Services.AddTransient<ILegacyIO, LegacyIO>();
                     break;
                 }
             }

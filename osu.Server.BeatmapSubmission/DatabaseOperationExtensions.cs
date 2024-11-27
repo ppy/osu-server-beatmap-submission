@@ -321,5 +321,38 @@ namespace osu.Server.BeatmapSubmission
                 versionFile,
                 transaction);
         }
+
+        public static async Task<bool> IsBeatmapSetInProcessingQueueAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            return await db.QuerySingleAsync<uint>(
+                "SELECT COUNT(1) FROM `bss_process_queue` WHERE `beatmapset_id` = @beatmapset_id AND `status` = 0",
+                new
+                {
+                    beatmapset_id = beatmapSetId
+                },
+                transaction) > 0;
+        }
+
+        public static Task AddBeatmapSetToProcessingQueueAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            return db.ExecuteAsync(
+                "INSERT INTO `bss_process_queue` (`beatmapset_id`) VALUES (@beatmapset_id)",
+                new
+                {
+                    beatmapset_id = beatmapSetId
+                },
+                transaction);
+        }
+
+        public static async Task<bool> IsBeatmapSetNominatedAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            return await db.QuerySingleOrDefaultAsync<string>(
+                "SELECT `type` FROM `beatmapset_events` WHERE `beatmapset_id` = @beatmapset_id AND `type` IN ('nominate', 'nomination_reset', 'disqualify') ORDER BY `created_at` DESC LIMIT 1",
+                new
+                {
+                    beatmapset_id = beatmapSetId
+                },
+                transaction) == "nominate";
+        }
     }
 }
