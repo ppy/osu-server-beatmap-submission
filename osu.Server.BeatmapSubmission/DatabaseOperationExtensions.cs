@@ -125,7 +125,7 @@ namespace osu.Server.BeatmapSubmission
 
         public static Task<IEnumerable<uint>> GetBeatmapIdsInSetAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
         {
-            return db.QueryAsync<uint>(@"SELECT `beatmap_id` FROM `osu_beatmaps` WHERE `beatmapset_id` = @beatmapSetId",
+            return db.QueryAsync<uint>(@"SELECT `beatmap_id` FROM `osu_beatmaps` WHERE `beatmapset_id` = @beatmapSetId AND `deleted_at` IS NULL",
                 new
                 {
                     beatmapSetId = beatmapSetId,
