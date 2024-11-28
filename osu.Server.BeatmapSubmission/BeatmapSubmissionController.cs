@@ -76,7 +76,7 @@ namespace osu.Server.BeatmapSubmission
                 {
                     return new ErrorResponse($"You have exceeded your submission cap (you are currently allowed {totalSlots} total unranked maps). "
                                              + $"Please finish the maps you currently have submitted, or wait until your submissions expire automatically to the graveyard "
-                                             + $"(about 4 weeks).").ToActionResult();
+                                             + $"(about 4 weeks since last updated).").ToActionResult();
                 }
 
                 string username = await db.GetUsernameAsync(userId, transaction);
