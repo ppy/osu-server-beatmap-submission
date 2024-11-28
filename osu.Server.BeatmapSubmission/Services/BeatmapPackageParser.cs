@@ -36,6 +36,9 @@ namespace osu.Server.BeatmapSubmission.Services
                 if (INVALID_EXTENSIONS.Contains(extension))
                     throw new InvariantException($"Beatmap contains a dangerous file type ({extension})");
 
+                if (SanityCheckHelpers.IncursPathTraversalRisk(filename))
+                    throw new InvariantException("Invalid filename detected");
+
                 var stream = archiveReader.GetStream(filename);
                 BeatmapContent? beatmapContent = null;
 

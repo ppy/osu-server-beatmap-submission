@@ -228,6 +228,9 @@ namespace osu.Server.BeatmapSubmission
                 // TODO: revive the map otherwise
             }
 
+            if (filesChanged.Any(f => SanityCheckHelpers.IncursPathTraversalRisk(f.FileName)))
+                return new ErrorResponse("Invalid filename detected").ToActionResult();
+
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
             // TODO: double-check that the patched archive is actually meaningfully different from the previous one
             // TODO: ensure that after patching, all the `.osu`s that should be in the `.osz` ARE in the `.osz`, and ensure there are no EXTRA `.osu`s
@@ -274,6 +277,9 @@ namespace osu.Server.BeatmapSubmission
 
             if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
                 return new ErrorResponse("The beatmap set is in the graveyard. Please ask the set owner to revive it first.").ToActionResult();
+
+            if (SanityCheckHelpers.IncursPathTraversalRisk(beatmapContents.FileName))
+                return new ErrorResponse("Invalid filename detected").ToActionResult();
 
             var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmap, beatmapContents);
             // TODO: double-check that the patched archive is actually meaningfully different from the previous one
