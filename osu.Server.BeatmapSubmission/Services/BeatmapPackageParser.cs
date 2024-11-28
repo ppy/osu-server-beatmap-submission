@@ -88,10 +88,8 @@ namespace osu.Server.BeatmapSubmission.Services
 
         private static osu_beatmapset constructDatabaseRowForBeatmapset(uint beatmapSetId, ArchiveReader archiveReader, BeatmapContent[] beatmaps)
         {
-            // TODO: currently all exceptions thrown here will be 500s, they should be 429s
-
             if (beatmaps.Length == 0)
-                throw new InvalidOperationException("The uploaded beatmap set must have at least one difficulty.");
+                throw new InvariantException("The uploaded beatmap set must have at least one difficulty.");
 
             float firstBeatLength = (float)beatmaps.First().Beatmap.GetMostCommonBeatLength();
 
@@ -143,7 +141,7 @@ namespace osu.Server.BeatmapSubmission.Services
         {
             T[] distinctValues = beatmapContents.Select(accessor).Distinct().ToArray();
             if (distinctValues.Length != 1)
-                throw new InvalidOperationException($"The uploaded beatmap set's individual difficulties have inconsistent {valueName}. Please unify {valueName} before re-submitting.");
+                throw new InvariantException($"The uploaded beatmap set's individual difficulties have inconsistent {valueName}. Please unify {valueName} before re-submitting.");
 
             return distinctValues.Single();
         }

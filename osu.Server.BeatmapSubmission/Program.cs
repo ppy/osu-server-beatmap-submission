@@ -16,7 +16,10 @@ namespace osu.Server.BeatmapSubmission
 
             // Add services to the container.
             builder.Services.AddAuthorization();
-            builder.Services.AddControllers();
+            builder.Services.AddControllers(options =>
+            {
+                options.Filters.Add<InvariantExceptionFilter>();
+            });
             builder.Services.AddLogging(logging =>
             {
                 logging.ClearProviders();
