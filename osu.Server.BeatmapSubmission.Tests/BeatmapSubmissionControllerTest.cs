@@ -715,7 +715,7 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
-            Assert.Contains("Beatmap contains a dangerous file type", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+            Assert.Contains("Beatmap contains an unsupported file type", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]
@@ -956,7 +956,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-            Assert.Contains("Beatmap contains a dangerous file type", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+            Assert.Contains("Beatmap contains an unsupported file type", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]
@@ -1231,7 +1231,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-            Assert.Contains("Beatmap contains a dangerous file type", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+            Assert.Contains("Beatmap contains an unsupported file type", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]

@@ -3,7 +3,6 @@
 
 using System.Security.Cryptography;
 using osu.Framework.Extensions;
-using osu.Game;
 using osu.Game.Beatmaps;
 using osu.Game.Beatmaps.Formats;
 using osu.Game.Beatmaps.Legacy;
@@ -11,6 +10,7 @@ using osu.Game.IO;
 using osu.Game.IO.Archives;
 using osu.Game.Rulesets.Objects.Legacy;
 using osu.Game.Storyboards;
+using osu.Game.Utils;
 using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.Database;
 
@@ -18,11 +18,7 @@ namespace osu.Server.BeatmapSubmission.Services
 {
     public static class BeatmapPackageParser
     {
-        public static readonly HashSet<string> INVALID_EXTENSIONS = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".exe", ".cmd", ".bat", ".sh", ".scr", ".doc", ".docx", ".docm", ".hta", ".htm", ".html", ".js", ".jar", ".vbs", ".vb", ".pdf", ".sfx", ".dll", ".py",
-            ".cer", ".apk", ".bin", ".msi", ".wsf", ".xls", ".xlsx", ".xlsm", ".ppt", ".pptx", ".pptm",
-        };
+        public static readonly HashSet<string> VALID_EXTENSIONS = new HashSet<string>([..SupportedExtensions.ALL_EXTENSIONS, @".osu"], StringComparer.OrdinalIgnoreCase);
 
         public static BeatmapPackageParseResult Parse(uint beatmapSetId, ArchiveReader archiveReader)
         {
@@ -33,8 +29,8 @@ namespace osu.Server.BeatmapSubmission.Services
             foreach (string filename in filenames)
             {
                 string extension = Path.GetExtension(filename);
-                if (INVALID_EXTENSIONS.Contains(extension))
-                    throw new InvariantException($"Beatmap contains a dangerous file type ({extension})");
+                if (!VALID_EXTENSIONS.Contains(extension))
+                    throw new InvariantException($"Beatmap contains an unsupported file type ({extension})");
 
                 if (SanityCheckHelpers.IncursPathTraversalRisk(filename))
                     throw new InvariantException("Invalid filename detected");
@@ -108,7 +104,7 @@ namespace osu.Server.BeatmapSubmission.Services
             // TODO: not updating `difficulty_names` despite original BSS doing so - pretty sure that cannot work correctly in the original BSS either
             // (old BSS embeds star ratings into the value of that which are not going to be correct at this point in time).
 
-            if (archiveReader.Filenames.Any(f => OsuGameBase.VIDEO_EXTENSIONS.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase)))
+            if (archiveReader.Filenames.Any(f => SupportedExtensions.VIDEO_EXTENSIONS.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase)))
             {
                 result.video = true;
             }
