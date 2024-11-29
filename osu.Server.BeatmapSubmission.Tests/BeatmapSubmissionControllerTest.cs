@@ -840,6 +840,43 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestPatchPackage_AddStoryboard()
+        {
+            using var db = DatabaseAccess.GetConnection();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
+
+            const string storyboard_content =
+                """
+                osu file format v14
+
+                [Events]
+                Animation,Foreground,Centre,"forever-string.png",330,240,10,108,LoopForever
+                """;
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var osuFileStream = TestResources.GetResource(osu_filename)!;
+            content.Add(new StringContent(storyboard_content), "filesChanged", "storyboard.osb");
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmapsets` WHERE `beatmapset_id` = 241526 AND `deleted_at` IS NULL AND `storyboard` = 1", 1, CancellationToken);
+        }
+
+        [Fact]
         public async Task TestPatchPackage_FailsIfBeatmapDeleted()
         {
             using var db = DatabaseAccess.GetConnection();

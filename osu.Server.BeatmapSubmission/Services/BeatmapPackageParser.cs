@@ -18,7 +18,7 @@ namespace osu.Server.BeatmapSubmission.Services
 {
     public static class BeatmapPackageParser
     {
-        public static readonly HashSet<string> VALID_EXTENSIONS = new HashSet<string>([..SupportedExtensions.ALL_EXTENSIONS, @".osu"], StringComparer.OrdinalIgnoreCase);
+        public static readonly HashSet<string> VALID_EXTENSIONS = new HashSet<string>([..SupportedExtensions.ALL_EXTENSIONS, @".osu", @".osb"], StringComparer.OrdinalIgnoreCase);
 
         public static BeatmapPackageParseResult Parse(uint beatmapSetId, ArchiveReader archiveReader)
         {
