@@ -46,7 +46,7 @@ namespace osu.Server.BeatmapSubmission.Authentication
                     var jwtToken = (JsonWebToken)context.SecurityToken;
                     int tokenUserId = int.Parse(jwtToken.Subject);
 
-                    using (var db = DatabaseAccess.GetConnection())
+                    using (var db = await DatabaseAccess.GetConnectionAsync())
                     {
                         // check expiry/revocation against database
                         int? userId = await db.QueryFirstOrDefaultAsync<int?>("SELECT `user_id` FROM `oauth_access_tokens` WHERE `revoked` = false AND `expires_at` > now() AND `id` = @id",

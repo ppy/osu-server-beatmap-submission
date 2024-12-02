@@ -248,7 +248,7 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
-        public static async Task<(beatmapset_version, VersionedFile[])?> GetBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, ulong versionId, MySqlTransaction? transaction = null)
+        public static async Task<(beatmapset_version, PackageFile[])?> GetBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, ulong versionId, MySqlTransaction? transaction = null)
         {
             var version = await db.QuerySingleOrDefaultAsync<beatmapset_version?>(
                 "SELECT * FROM `beatmapset_versions` WHERE `beatmapset_id` = @beatmapset_id AND `version_id` = @version_id",
@@ -261,13 +261,13 @@ namespace osu.Server.BeatmapSubmission
             if (version == null)
                 return null;
 
-            VersionedFile[] files = (await db.QueryAsync(
+            PackageFile[] files = (await db.QueryAsync(
                 """
                 SELECT `f`.`file_id`, `f`.`sha2_hash`, `f`.`file_size`, `vf`.`file_id` AS `versioned_file_id`, `vf`.`version_id`, `vf`.`filename` FROM `beatmapset_files` `f`
                 JOIN `beatmapset_version_files` `vf` ON `f`.`file_id` = `vf`.`file_id`
                 WHERE `vf`.`version_id` = @version_id
                 """,
-                (beatmapset_file file, beatmapset_version_file versionFile) => new VersionedFile(file, versionFile),
+                (beatmapset_file file, beatmapset_version_file versionFile) => new PackageFile(file, versionFile),
                 new
                 {
                     version_id = version.version_id
