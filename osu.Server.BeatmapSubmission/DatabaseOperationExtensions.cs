@@ -3,6 +3,7 @@
 
 using Dapper;
 using MySqlConnector;
+using osu.Game.Beatmaps;
 using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.Database;
 
@@ -178,6 +179,21 @@ namespace osu.Server.BeatmapSubmission
                 {
                     userId = userId,
                     beatmapSetId = beatmapSetId,
+                },
+                transaction);
+        }
+
+        public static async Task SetBeatmapSetOnlineStatusAsync(this MySqlConnection db, uint beatmapSetId, BeatmapOnlineStatus onlineStatus, MySqlTransaction? transaction = null)
+        {
+            await db.ExecuteAsync(
+                """
+                UPDATE `osu_beatmapsets` SET `approved` = @status WHERE `beatmapset_id` = @beatmapset_id;
+                UPDATE `osu_beatmaps` SET `approved` = @status WHERE `beatmapset_id` = @beatmapset_id;
+                """,
+                new
+                {
+                    status = onlineStatus,
+                    beatmapset_id = beatmapSetId,
                 },
                 transaction);
         }
