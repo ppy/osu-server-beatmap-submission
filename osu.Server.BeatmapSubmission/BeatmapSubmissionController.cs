@@ -108,6 +108,10 @@ namespace osu.Server.BeatmapSubmission
             if (totalBeatmapCount > 128)
                 return new ErrorResponse("The beatmap set cannot contain more than 128 beatmaps.").ToActionResult();
 
+            // C# enums suck, so this needs to be explicitly checked to prevent bad actors from doing "funny" stuff.
+            if (!Enum.IsDefined(request.Target))
+                return Forbid();
+
             foreach (uint beatmapId in existingBeatmaps.Except(request.BeatmapsToKeep))
                 await db.DeleteBeatmapAsync(beatmapId, transaction);
 
