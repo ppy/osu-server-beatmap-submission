@@ -48,7 +48,7 @@ namespace osu.Server.BeatmapSubmission
         {
             uint userId = User.GetUserId();
 
-            using var db = DatabaseAccess.GetConnection();
+            using var db = await DatabaseAccess.GetConnectionAsync();
 
             ErrorResponse? userError = await checkUserAccountStanding(db, userId);
             if (userError != null)
@@ -154,7 +154,7 @@ namespace osu.Server.BeatmapSubmission
         {
             uint userId = User.GetUserId();
 
-            using var db = DatabaseAccess.GetConnection();
+            using var db = await DatabaseAccess.GetConnectionAsync();
 
             ErrorResponse? userError = await checkUserAccountStanding(db, userId);
             if (userError != null)
@@ -204,7 +204,7 @@ namespace osu.Server.BeatmapSubmission
             [FromForm] string[] filesDeleted)
         {
             uint userId = User.GetUserId();
-            using var db = DatabaseAccess.GetConnection();
+            using var db = await DatabaseAccess.GetConnectionAsync();
 
             ErrorResponse? userError = await checkUserAccountStanding(db, userId);
             if (userError != null)
@@ -257,7 +257,7 @@ namespace osu.Server.BeatmapSubmission
             IFormFile beatmapContents)
         {
             uint userId = User.GetUserId();
-            using var db = DatabaseAccess.GetConnection();
+            using var db = await DatabaseAccess.GetConnectionAsync();
 
             ErrorResponse? userError = await checkUserAccountStanding(db, userId);
             if (userError != null)
@@ -363,7 +363,7 @@ namespace osu.Server.BeatmapSubmission
             [FromRoute] uint beatmapSetId,
             [FromRoute] uint versionId)
         {
-            using var db = DatabaseAccess.GetConnection();
+            using var db = await DatabaseAccess.GetConnectionAsync();
 
             (beatmapset_version version, PackageFile[] files)? versionInfo = await db.GetBeatmapsetVersionAsync(beatmapSetId, versionId);
 
