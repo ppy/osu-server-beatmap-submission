@@ -42,6 +42,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             db.Execute("TRUNCATE TABLE `beatmapset_version_files`");
             db.Execute("TRUNCATE TABLE `beatmapset_files`");
             db.Execute("TRUNCATE TABLE `beatmapset_versions`");
+            db.Execute("TRUNCATE TABLE `beatmapset_events`");
             db.Execute("TRUNCATE TABLE `osu_beatmapsets`");
         }
 

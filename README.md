@@ -26,12 +26,14 @@ Additionally, to test beatmap downloads, you may want to set up a local beatmap 
 
 For advanced testing purposes.
 
-| Envvar name                  | Description                                                                                                                                      |        Mandatory?        | Default value |
-|:-----------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------:|:--------------|
-| `DB_HOST`                    | Hostname under which the `osu-web` MySQL instance can be found.                                                                                  |           ❌ No           | `localhost`   |
-| `DB_PORT`                    | Port under which the `osu-web` MySQL instance can be found.                                                                                      |           ❌ No           | `3306`        |
-| `DB_USER`                    | Username to use when logging into the `osu-web` MySQL instance.                                                                                  |           ❌ No           | `root`        |
-| `DB_PASS`                    | Password to use when logging into the `osu-web` MySQL instance.                                                                                  |           ❌ No           | `""`          |
-| `DB_NAME`                    | Name of database to use on the indicated MySQL instance.                                                                                         |           ❌ No           | `osu`         |
-| `JWT_VALID_AUDIENCE`         | The value of the `aud` claim to use when validating incoming JWTs. Should be set to the client ID assigned to osu! in the osu-web target deploy. |          ✔️ Yes          | None          |
-| `LOCAL_BEATMAP_STORAGE_PATH` | The path of a directory where the submitted beatmaps should reside.                                                                              | ⚠️ In development config | None          |
+| Envvar name                  | Description                                                                                                                                        |        Mandatory?        | Default value |
+|:-----------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------:|:--------------|
+| `DB_HOST`                    | Hostname under which the `osu-web` MySQL instance can be found.                                                                                    |           ❌ No           | `localhost`   |
+| `DB_PORT`                    | Port under which the `osu-web` MySQL instance can be found.                                                                                        |           ❌ No           | `3306`        |
+| `DB_USER`                    | Username to use when logging into the `osu-web` MySQL instance.                                                                                    |           ❌ No           | `root`        |
+| `DB_PASS`                    | Password to use when logging into the `osu-web` MySQL instance.                                                                                    |           ❌ No           | `""`          |
+| `DB_NAME`                    | Name of database to use on the indicated MySQL instance.                                                                                           |           ❌ No           | `osu`         |
+| `JWT_VALID_AUDIENCE`         | The value of the `aud` claim to use when validating incoming JWTs. Should be set to the client ID assigned to osu! in the `osu-web` target deploy. |          ✔️ Yes          | None          |
+| `LOCAL_BEATMAP_STORAGE_PATH` | The path of a directory where the submitted beatmaps should reside.                                                                                | ⚠️ In development config | None          |
+| `LEGACY_IO_DOMAIN`           | The root domain to which legacy IO requests should be directed to.                                                                                 |          ✔️ Yes          | None          |
+| `SHARED_INTEROP_SECRET`      | The interop secret used for legacy IO requests. Value should match same environment variable in target `osu-web` instance.                         |          ✔️ Yes          | None          |
