@@ -52,8 +52,6 @@ namespace osu.Server.BeatmapSubmission
             if (userError != null)
                 return userError.ToActionResult();
 
-            // TODO: create forum thread for description editing purposes if set is new
-
             if (await db.GetUserMonthlyPlaycountAsync(userId) < 5)
                 return new ErrorResponse("Thanks for your contribution, but please play the game first!").ToActionResult();
 
