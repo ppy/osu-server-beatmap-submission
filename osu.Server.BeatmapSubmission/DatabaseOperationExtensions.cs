@@ -272,7 +272,8 @@ namespace osu.Server.BeatmapSubmission
                 {
                     beatmapset_id = beatmapSetId,
                     version_id = versionId
-                });
+                },
+                transaction);
 
             if (version == null)
                 return null;
