@@ -7,6 +7,7 @@ using System.Text;
 using Dapper;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using osu.Framework.Extensions;
 using osu.Framework.Utils;
 using osu.Game.Beatmaps;
@@ -31,6 +32,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         protected new HttpClient Client { get; }
 
         private readonly LocalBeatmapStorage beatmapStorage;
+        private readonly Mock<ILegacyIO> mockLegacyIO = new Mock<ILegacyIO>();
 
         public BeatmapSubmissionControllerTest(IntegrationTestWebApplicationFactory<Program> webAppFactory)
             : base(webAppFactory)
@@ -43,19 +45,26 @@ namespace osu.Server.BeatmapSubmission.Tests
                 {
                     services.AddTransient<IBeatmapStorage>(_ => beatmapStorage);
                     services.AddTransient<BeatmapPackagePatcher>();
+                    services.AddTransient<ILegacyIO>(_ => mockLegacyIO.Object);
                 });
             }).CreateClient();
         }
 
-        [Fact]
-        public async Task TestPutBeatmapSet_NewSet()
+        [Theory]
+        [InlineData(BeatmapSubmissionTarget.WIP)]
+        [InlineData(BeatmapSubmissionTarget.Pending)]
+        public async Task TestPutBeatmapSet_NewSet(BeatmapSubmissionTarget status)
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
-            request.Content = JsonContent.Create(new PutBeatmapSetRequest { BeatmapsToCreate = 15 });
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapsToCreate = 15,
+                Target = status,
+            });
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2");
 
             var response = await Client.SendAsync(request);
@@ -67,6 +76,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             var beatmapset = await db.QuerySingleAsync<osu_beatmapset>("SELECT * FROM `osu_beatmapsets`");
             Assert.Equal(2u, beatmapset.user_id);
             Assert.Equal("test", beatmapset.creator);
+            Assert.Equal((int)status, (int)beatmapset.approved);
 
             WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = @beatmapSetId", 15, CancellationToken, new { beatmapSetId = beatmapset.beatmapset_id });
 
@@ -262,6 +272,67 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var responseContent = await response.Content.ReadFromJsonAsync<PutBeatmapSetResponse>();
             Assert.Equal(6, responseContent!.BeatmapIds.Count);
+        }
+
+        [Fact]
+        public async Task TestPutBeatmapSet_ExistingSet_MoveToPending()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync(
+                "INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
+
+            await db.ExecuteAsync(
+                @"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = 1000,
+                BeatmapsToCreate = 3,
+                BeatmapsToKeep = [5001, 5003, 5005],
+                Target = BeatmapSubmissionTarget.Pending,
+            });
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = 1000 AND `deleted_at` IS NULL AND `approved` = -1", 0, CancellationToken);
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = 1000 AND `deleted_at` IS NULL AND `approved` = 0", 6, CancellationToken);
+        }
+
+        [Fact]
+        public async Task TestPutBeatmapSet_ExistingSet_StatusShenanigansNotAllowed()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync(
+                "INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
+
+            await db.ExecuteAsync(
+                @"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = 1000,
+                BeatmapsToCreate = 3,
+                BeatmapsToKeep = [5001, 5003, 5005],
+                Target = (BeatmapSubmissionTarget)1, // cheeky attempt to "rank" a set using parameter abuse
+            });
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = 1000 AND `deleted_at` IS NULL AND `approved` = -1", 5, CancellationToken);
         }
 
         [Fact]
@@ -837,6 +908,7 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var renamedBeatmap = await db.QuerySingleAsync<osu_beatmap>(@"SELECT * FROM `osu_beatmaps` WHERE `beatmap_id` = 557810");
             Assert.Equal("Platter 2", renamedBeatmap.version);
+            mockLegacyIO.Verify(io => io.DisqualifyBeatmapSetAsync(241526, It.IsAny<string>()), Times.Never);
         }
 
         [Fact]
@@ -874,6 +946,39 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.True(response.IsSuccessStatusCode);
 
             WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmapsets` WHERE `beatmapset_id` = 241526 AND `deleted_at` IS NULL AND `storyboard` = 1", 1, CancellationToken);
+        }
+
+        [Fact]
+        public async Task TestPatchPackage_NominationsReset()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            await db.ExecuteAsync("INSERT INTO `beatmapset_events` (`beatmapset_id`, `user_id`, `type`) VALUES (241526, 1001, 'nominate')");
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var osuFileStream = TestResources.GetResource(osu_filename)!;
+            content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
+            content.Add(new StringContent("Soleily - Renatus (Deif) [Platter].osu"), "filesDeleted");
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = 241526 AND `deleted_at` IS NULL", 12, CancellationToken);
+            mockLegacyIO.Verify(io => io.DisqualifyBeatmapSetAsync(241526, It.IsAny<string>()), Times.AtLeastOnce);
         }
 
         [Fact]

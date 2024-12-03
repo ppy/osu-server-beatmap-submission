@@ -3,6 +3,7 @@
 
 using Dapper;
 using MySqlConnector;
+using osu.Game.Beatmaps;
 using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.Database;
 
@@ -182,6 +183,21 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
+        public static async Task SetBeatmapSetOnlineStatusAsync(this MySqlConnection db, uint beatmapSetId, BeatmapOnlineStatus onlineStatus, MySqlTransaction? transaction = null)
+        {
+            await db.ExecuteAsync(
+                """
+                UPDATE `osu_beatmapsets` SET `approved` = @status WHERE `beatmapset_id` = @beatmapset_id;
+                UPDATE `osu_beatmaps` SET `approved` = @status WHERE `beatmapset_id` = @beatmapset_id;
+                """,
+                new
+                {
+                    status = onlineStatus,
+                    beatmapset_id = beatmapSetId,
+                },
+                transaction);
+        }
+
         public static Task DeleteBeatmapAsync(this MySqlConnection db, uint beatmapId, MySqlTransaction? transaction = null)
         {
             return db.ExecuteAsync("UPDATE `osu_beatmaps` SET `deleted_at` = NOW() WHERE `beatmap_id` = @beatmapId",
@@ -304,6 +320,39 @@ namespace osu.Server.BeatmapSubmission
                 "INSERT INTO `beatmapset_version_files` (`file_id`, `version_id`, `filename`) VALUES (@file_id, @version_id, @filename)",
                 versionFile,
                 transaction);
+        }
+
+        public static async Task<bool> IsBeatmapSetInProcessingQueueAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            return await db.QuerySingleAsync<uint>(
+                "SELECT COUNT(1) FROM `bss_process_queue` WHERE `beatmapset_id` = @beatmapset_id AND `status` = 0",
+                new
+                {
+                    beatmapset_id = beatmapSetId
+                },
+                transaction) > 0;
+        }
+
+        public static Task AddBeatmapSetToProcessingQueueAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            return db.ExecuteAsync(
+                "INSERT INTO `bss_process_queue` (`beatmapset_id`) VALUES (@beatmapset_id)",
+                new
+                {
+                    beatmapset_id = beatmapSetId
+                },
+                transaction);
+        }
+
+        public static async Task<bool> IsBeatmapSetNominatedAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            return await db.QuerySingleOrDefaultAsync<string>(
+                "SELECT `type` FROM `beatmapset_events` WHERE `beatmapset_id` = @beatmapset_id AND `type` IN ('nominate', 'nomination_reset', 'disqualify') ORDER BY `created_at` DESC LIMIT 1",
+                new
+                {
+                    beatmapset_id = beatmapSetId
+                },
+                transaction) == "nominate";
         }
     }
 }
