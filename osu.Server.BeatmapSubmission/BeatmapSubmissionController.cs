@@ -231,6 +231,9 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
                 return Forbid();
 
+            if (await db.GetLatestBeatmapsetVersionAsync(beatmapSetId) == null)
+                return NotFound();
+
             if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
             {
                 (_, uint remainingSlots) = await getUploadQuota(db, userId);
@@ -285,6 +288,9 @@ namespace osu.Server.BeatmapSubmission
             // TODO: revisit once https://github.com/ppy/osu-web/pull/11377 goes in
             if (beatmap.user_id != User.GetUserId())
                 return Forbid();
+
+            if (await db.GetLatestBeatmapsetVersionAsync(beatmapSetId) == null)
+                return NotFound();
 
             if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
                 return new ErrorResponse("The beatmap set is in the graveyard. Please ask the set owner to revive it first.").ToActionResult();

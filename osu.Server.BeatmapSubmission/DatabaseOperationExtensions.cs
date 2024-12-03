@@ -264,6 +264,17 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
+        public static async Task<beatmapset_version?> GetLatestBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            return await db.QuerySingleOrDefaultAsync<beatmapset_version?>(
+                "SELECT * FROM `beatmapset_versions` WHERE `beatmapset_id` = @beatmapset_id ORDER BY `version_id` DESC LIMIT 1",
+                new
+                {
+                    beatmapset_id = beatmapSetId
+                },
+                transaction);
+        }
+
         public static async Task<(beatmapset_version, PackageFile[])?> GetBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, ulong versionId, MySqlTransaction? transaction = null)
         {
             var version = await db.QuerySingleOrDefaultAsync<beatmapset_version?>(
