@@ -79,6 +79,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal((int)status, (int)beatmapset.approved);
 
             WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = @beatmapSetId", 15, CancellationToken, new { beatmapSetId = beatmapset.beatmapset_id });
+            WaitForDatabaseState(@"SELECT `versions_available` FROM `osu_beatmapsets` WHERE `beatmapset_id` = @beatmapSetId", 15, CancellationToken, new { beatmapSetId = beatmapset.beatmapset_id });
 
             var responseContent = await response.Content.ReadFromJsonAsync<PutBeatmapSetResponse>();
             Assert.Equal(15, responseContent!.BeatmapIds.Count);
@@ -269,6 +270,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5001 });
             WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5003 });
             WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5005 });
+            WaitForDatabaseState(@"SELECT `versions_available` FROM `osu_beatmapsets` WHERE `beatmapset_id` = 1000", 6, CancellationToken);
 
             var responseContent = await response.Content.ReadFromJsonAsync<PutBeatmapSetResponse>();
             Assert.Equal(6, responseContent!.BeatmapIds.Count);

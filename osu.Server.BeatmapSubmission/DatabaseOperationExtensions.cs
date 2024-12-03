@@ -198,6 +198,18 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
+        public static async Task UpdateBeatmapCountForSet(this MySqlConnection db, uint beatmapSetId, uint beatmapCount, MySqlTransaction? transaction = null)
+        {
+            await db.ExecuteAsync(
+                "UPDATE IGNORE `osu_beatmapsets` SET `versions_available` = @versions_available WHERE `beatmapset_id` = @beatmapset_id",
+                new
+                {
+                    versions_available = beatmapCount,
+                    beatmapset_id = beatmapSetId,
+                },
+                transaction);
+        }
+
         public static Task DeleteBeatmapAsync(this MySqlConnection db, uint beatmapId, MySqlTransaction? transaction = null)
         {
             return db.ExecuteAsync("UPDATE `osu_beatmaps` SET `deleted_at` = NOW() WHERE `beatmap_id` = @beatmapId",

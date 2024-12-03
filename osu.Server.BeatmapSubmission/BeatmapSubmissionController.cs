@@ -124,6 +124,7 @@ namespace osu.Server.BeatmapSubmission
             }
 
             await db.SetBeatmapSetOnlineStatusAsync(beatmapSetId.Value, (BeatmapOnlineStatus)request.Target, transaction);
+            await db.UpdateBeatmapCountForSet(beatmapSetId.Value, totalBeatmapCount, transaction);
 
             await transaction.CommitAsync();
 
