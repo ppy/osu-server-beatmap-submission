@@ -2,6 +2,7 @@
 // See the LICENCE file in the repository root for full licence text.
 
 using System.Text.Json.Serialization;
+using osu.Game.Beatmaps;
 
 namespace osu.Server.BeatmapSubmission.Models.API.Requests
 {
@@ -31,5 +32,18 @@ namespace osu.Server.BeatmapSubmission.Models.API.Requests
         /// <example>[841629, 841658, 874240, 838103]</example>
         [JsonPropertyName("beatmaps_to_keep")]
         public uint[] BeatmapsToKeep { get; set; } = [];
+
+        [JsonPropertyName("target")]
+        public BeatmapSubmissionTarget Target { get; set; } = BeatmapSubmissionTarget.WIP;
+    }
+
+    /// <summary>
+    /// The intended status of the beatmap being modified.
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter<BeatmapSubmissionTarget>))]
+    public enum BeatmapSubmissionTarget
+    {
+        WIP = BeatmapOnlineStatus.WIP,
+        Pending = BeatmapOnlineStatus.Pending,
     }
 }

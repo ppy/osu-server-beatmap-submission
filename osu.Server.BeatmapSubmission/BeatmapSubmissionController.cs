@@ -29,8 +29,6 @@ namespace osu.Server.BeatmapSubmission
             this.patcher = patcher;
         }
 
-        // TODO: accept pending/WIP user choice somewhere
-
         /// <summary>
         /// Create a new beatmap set, or add/remove beatmaps from an existing beatmap set
         /// </summary>
@@ -110,6 +108,10 @@ namespace osu.Server.BeatmapSubmission
             if (totalBeatmapCount > 128)
                 return new ErrorResponse("The beatmap set cannot contain more than 128 beatmaps.").ToActionResult();
 
+            // C# enums suck, so this needs to be explicitly checked to prevent bad actors from doing "funny" stuff.
+            if (!Enum.IsDefined(request.Target))
+                return Forbid();
+
             foreach (uint beatmapId in existingBeatmaps.Except(request.BeatmapsToKeep))
                 await db.DeleteBeatmapAsync(beatmapId, transaction);
 
@@ -120,6 +122,8 @@ namespace osu.Server.BeatmapSubmission
                 uint beatmapId = await db.CreateBlankBeatmapAsync(userId, beatmapSetId.Value, transaction);
                 beatmapIds.Add(beatmapId);
             }
+
+            await db.SetBeatmapSetOnlineStatusAsync(beatmapSetId.Value, (BeatmapOnlineStatus)request.Target, transaction);
 
             await transaction.CommitAsync();
 
