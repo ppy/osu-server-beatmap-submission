@@ -22,11 +22,13 @@ namespace osu.Server.BeatmapSubmission
     {
         private readonly IBeatmapStorage beatmapStorage;
         private readonly BeatmapPackagePatcher patcher;
+        private readonly ILegacyIO legacyIO;
 
-        public BeatmapSubmissionController(IBeatmapStorage beatmapStorage, BeatmapPackagePatcher patcher)
+        public BeatmapSubmissionController(IBeatmapStorage beatmapStorage, BeatmapPackagePatcher patcher, ILegacyIO legacyIO)
         {
             this.beatmapStorage = beatmapStorage;
             this.patcher = patcher;
+            this.legacyIO = legacyIO;
         }
 
         /// <summary>
@@ -51,8 +53,6 @@ namespace osu.Server.BeatmapSubmission
             ErrorResponse? userError = await checkUserAccountStanding(db, userId);
             if (userError != null)
                 return userError.ToActionResult();
-
-            // TODO: create forum thread for description editing purposes if set is new
 
             if (await db.GetUserMonthlyPlaycountAsync(userId) < 5)
                 return new ErrorResponse("Thanks for your contribution, but please play the game first!").ToActionResult();
@@ -184,7 +184,14 @@ namespace osu.Server.BeatmapSubmission
 
             using var beatmapStream = beatmapArchive.OpenReadStream();
 
+            // this endpoint should always be used on a first submission,
+            // but do a check which matches stable to make sure that it is the case.
+            bool newSubmission = beatmapSet.bpm == 0;
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
+
+            if (newSubmission)
+                await legacyIO.BroadcastNewBeatmapSetEventAsync(beatmapSetId);
+
             return NoContent();
         }
 
@@ -344,8 +351,20 @@ namespace osu.Server.BeatmapSubmission
             await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
 
             await transaction.CommitAsync();
+
             // TODO: the ACID implications on this happening post-commit are... interesting... not sure anything can be done better?
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
+
+            if (await db.IsBeatmapSetNominatedAsync(beatmapSetId))
+                await legacyIO.DisqualifyBeatmapSetAsync(beatmapSetId, "This beatmap set was updated by the mapper after a nomination. Please ensure to re-check the beatmaps for new issues. If you are the mapper, please comment in this thread on what you changed.");
+
+            if (!await db.IsBeatmapSetInProcessingQueueAsync(beatmapSetId))
+            {
+                await db.AddBeatmapSetToProcessingQueueAsync(beatmapSetId);
+                await legacyIO.IndexBeatmapSetAsync(beatmapSetId);
+            }
+
+            await legacyIO.RefreshBeatmapSetCacheAsync(beatmapSetId);
         }
 
         /// <summary>
