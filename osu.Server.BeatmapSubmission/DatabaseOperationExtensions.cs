@@ -198,6 +198,18 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
+        public static async Task UpdateBeatmapCountForSet(this MySqlConnection db, uint beatmapSetId, uint beatmapCount, MySqlTransaction? transaction = null)
+        {
+            await db.ExecuteAsync(
+                "UPDATE `osu_beatmapsets` SET `versions_available` = @versions_available WHERE `beatmapset_id` = @beatmapset_id",
+                new
+                {
+                    versions_available = beatmapCount,
+                    beatmapset_id = beatmapSetId,
+                },
+                transaction);
+        }
+
         public static Task DeleteBeatmapAsync(this MySqlConnection db, uint beatmapId, MySqlTransaction? transaction = null)
         {
             return db.ExecuteAsync("UPDATE `osu_beatmaps` SET `deleted_at` = NOW() WHERE `beatmap_id` = @beatmapId",
@@ -264,6 +276,17 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
+        public static async Task<beatmapset_version?> GetLatestBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            return await db.QuerySingleOrDefaultAsync<beatmapset_version?>(
+                "SELECT * FROM `beatmapset_versions` WHERE `beatmapset_id` = @beatmapset_id ORDER BY `version_id` DESC LIMIT 1",
+                new
+                {
+                    beatmapset_id = beatmapSetId
+                },
+                transaction);
+        }
+
         public static async Task<(beatmapset_version, PackageFile[])?> GetBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, ulong versionId, MySqlTransaction? transaction = null)
         {
             var version = await db.QuerySingleOrDefaultAsync<beatmapset_version?>(
@@ -272,7 +295,8 @@ namespace osu.Server.BeatmapSubmission
                 {
                     beatmapset_id = beatmapSetId,
                     version_id = versionId
-                });
+                },
+                transaction);
 
             if (version == null)
                 return null;

@@ -79,6 +79,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal((int)status, (int)beatmapset.approved);
 
             WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps` WHERE `beatmapset_id` = @beatmapSetId", 15, CancellationToken, new { beatmapSetId = beatmapset.beatmapset_id });
+            WaitForDatabaseState(@"SELECT `versions_available` FROM `osu_beatmapsets` WHERE `beatmapset_id` = @beatmapSetId", 15, CancellationToken, new { beatmapSetId = beatmapset.beatmapset_id });
 
             var responseContent = await response.Content.ReadFromJsonAsync<PutBeatmapSetResponse>();
             Assert.Equal(15, responseContent!.BeatmapIds.Count);
@@ -269,6 +270,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5001 });
             WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5003 });
             WaitForDatabaseState(@"SELECT `deleted_at` FROM `osu_beatmaps` WHERE `beatmap_id` = @beatmapId", (DateTimeOffset?)null, CancellationToken, new { beatmapId = 5005 });
+            WaitForDatabaseState(@"SELECT `versions_available` FROM `osu_beatmapsets` WHERE `beatmapset_id` = 1000", 6, CancellationToken);
 
             var responseContent = await response.Content.ReadFromJsonAsync<PutBeatmapSetResponse>();
             Assert.Equal(6, responseContent!.BeatmapIds.Count);
@@ -891,6 +893,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
@@ -925,6 +928,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
@@ -964,6 +968,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
@@ -982,6 +987,30 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestPatchPackage_FailsIfThereWasNoPriorUpload()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var osuFileStream = TestResources.GetResource(osu_filename)!;
+            content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
         public async Task TestPatchPackage_FailsIfBeatmapDeleted()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
@@ -995,6 +1024,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
@@ -1024,6 +1054,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
@@ -1056,6 +1087,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
@@ -1086,6 +1118,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
@@ -1115,6 +1148,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "999999")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (999999)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/999999");
 
@@ -1145,6 +1179,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
@@ -1179,6 +1214,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
@@ -1207,6 +1243,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
 
@@ -1241,6 +1278,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
 
@@ -1271,6 +1309,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
 
@@ -1301,6 +1340,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
 
@@ -1331,6 +1371,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
 
@@ -1361,6 +1402,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
 
@@ -1392,6 +1434,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
 
@@ -1423,6 +1466,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "999999")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (999999)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/999999/beatmaps/557810");
 
@@ -1454,6 +1498,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
 
@@ -1491,6 +1536,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
                 await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
 
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
 
