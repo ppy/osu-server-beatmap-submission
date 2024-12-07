@@ -44,6 +44,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             db.Execute("TRUNCATE TABLE `beatmapset_versions`");
             db.Execute("TRUNCATE TABLE `beatmapset_events`");
             db.Execute("TRUNCATE TABLE `osu_beatmapsets`");
+            db.Execute("TRUNCATE TABLE `beatmap_owners`");
         }
 
         protected void WaitForDatabaseState<T>(string sql, T expected, CancellationToken cancellationToken, object? param = null)
