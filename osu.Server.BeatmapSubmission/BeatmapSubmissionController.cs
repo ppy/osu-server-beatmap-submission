@@ -286,8 +286,8 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
                 return Forbid();
 
-            // TODO: revisit once https://github.com/ppy/osu-web/pull/11377 goes in
-            if (beatmap.user_id != User.GetUserId())
+            IEnumerable<uint> beatmapOwners = await db.GetBeatmapOwnersAsync(beatmap.beatmap_id);
+            if (beatmap.user_id != userId && !beatmapOwners.Contains(userId))
                 return Forbid();
 
             if (await db.GetLatestBeatmapsetVersionAsync(beatmapSetId) == null)

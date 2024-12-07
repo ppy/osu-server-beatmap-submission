@@ -378,5 +378,16 @@ namespace osu.Server.BeatmapSubmission
                 },
                 transaction) == "nominate";
         }
+
+        public static async Task<IEnumerable<uint>> GetBeatmapOwnersAsync(this MySqlConnection db, uint beatmapId, MySqlTransaction? transaction = null)
+        {
+            return await db.QueryAsync<uint>(
+                "SELECT `user_id` FROM `beatmap_owners` WHERE `beatmap_id` = @beatmap_id",
+                new
+                {
+                    beatmap_id = beatmapId
+                },
+                transaction);
+        }
     }
 }
