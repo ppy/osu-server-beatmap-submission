@@ -135,11 +135,13 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapRevived)
                 await legacyIO.BroadcastReviveBeatmapSetEventAsync(beatmapSetId.Value);
 
+            (beatmapset_version version, PackageFile[] files)? latestVersion = await db.GetLatestBeatmapsetVersionAsync(beatmapSetId.Value);
+
             return Ok(new PutBeatmapSetResponse
             {
                 BeatmapSetId = beatmapSetId.Value,
                 BeatmapIds = beatmapIds,
-                Files = beatmapStorage.ListBeatmapSetFiles(beatmapSetId.Value),
+                Files = latestVersion?.files.Select(f => new BeatmapSetFile(f.VersionFile.filename, BitConverter.ToString(f.File.sha2_hash).Replace("-", ""))).ToArray() ?? [],
             });
         }
 
