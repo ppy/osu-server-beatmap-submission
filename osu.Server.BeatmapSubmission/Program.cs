@@ -53,7 +53,7 @@ namespace osu.Server.BeatmapSubmission
                 case "Staging":
                 case "Production":
                 {
-                    // TODO: S3-based beatmap storage
+                    builder.Services.AddSingleton<IBeatmapStorage, S3BeatmapStorage>();
                     builder.Services.AddTransient<BeatmapPackagePatcher>();
                     builder.Services.AddHttpClient();
                     builder.Services.AddTransient<ILegacyIO, LegacyIO>();

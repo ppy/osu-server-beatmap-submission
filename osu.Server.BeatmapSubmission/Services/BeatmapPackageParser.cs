@@ -95,7 +95,7 @@ namespace osu.Server.BeatmapSubmission.Services
                 source = getSingleValueFrom(beatmaps, c => c.Beatmap.Metadata.Source, nameof(BeatmapMetadata.Source)),
                 tags = getSingleValueFrom(beatmaps, c => c.Beatmap.Metadata.Tags, nameof(BeatmapMetadata.Tags)),
                 bpm = firstBeatLength > 0 ? 60000 / firstBeatLength : 0,
-                filename = FormattableString.Invariant($"{beatmapSetId}.osz"),
+                filename = PackageFilenameFor(beatmapSetId),
             };
 
             // TODO: maybe unnecessary?
@@ -124,6 +124,8 @@ namespace osu.Server.BeatmapSubmission.Services
 
             return result;
         }
+
+        public static string PackageFilenameFor(uint beatmapSetId) => FormattableString.Invariant($"{beatmapSetId}.osz");
 
         private static T getSingleValueFrom<T>(IEnumerable<BeatmapContent> beatmapContents, Func<BeatmapContent, T> accessor, string valueName)
         {

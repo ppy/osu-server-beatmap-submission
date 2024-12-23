@@ -25,5 +25,20 @@ namespace osu.Server.BeatmapSubmission.Configuration
             Environment.GetEnvironmentVariable("SHARED_INTEROP_SECRET")
             ?? throw new InvalidOperationException("SHARED_INTEROP_SECRET environment variable not set. "
                                                    + "Please set the value of this variable to the value of the same environment variable that the target osu-web instance specifies in `.env`.");
+
+        public static string S3AccessKey =>
+            Environment.GetEnvironmentVariable("S3_ACCESS_KEY")
+            ?? throw new InvalidOperationException("S3_ACCESS_KEY environment variable not set. "
+                                                   + "Please set the value of this variable to a valid Amazon S3 access key ID.");
+
+        public static string S3SecretKey =>
+            Environment.GetEnvironmentVariable("S3_SECRET_KEY")
+            ?? throw new InvalidOperationException("S3_SECRET_KEY environment variable not set. "
+                                                   + "Please set the value of this variable to the correct secret key for the S3_ACCESS_KEY supplied.");
+
+        public static string S3BucketName =>
+            Environment.GetEnvironmentVariable("S3_BUCKET_NAME")
+            ?? throw new InvalidOperationException("S3_BUCKET_NAME environment variable not set. "
+                                                   + "Please set the value of this variable to the name of the bucket to be used for storing beatmaps on S3.");
     }
 }
