@@ -192,12 +192,14 @@ namespace osu.Server.BeatmapSubmission
             // this endpoint should always be used on a first submission,
             // but do a check which matches stable to make sure that it is the case.
             bool newSubmission = beatmapSet.bpm == 0;
-            await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
 
-            if (newSubmission)
-                await legacyIO.BroadcastNewBeatmapSetEventAsync(beatmapSetId);
-            else
-                await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
+            if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db))
+            {
+                if (newSubmission)
+                    await legacyIO.BroadcastNewBeatmapSetEventAsync(beatmapSetId);
+                else
+                    await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
+            }
 
             return NoContent();
         }
@@ -248,11 +250,10 @@ namespace osu.Server.BeatmapSubmission
                 return new ErrorResponse("Invalid filename detected").ToActionResult();
 
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
-            // TODO: double-check that the patched archive is actually meaningfully different from the previous one
-            // TODO: ensure that after patching, all the `.osu`s that should be in the `.osz` ARE in the `.osz`, and ensure there are no EXTRA `.osu`s
-            await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
 
-            await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
+            if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db))
+                await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
+
             return NoContent();
         }
 
@@ -303,10 +304,10 @@ namespace osu.Server.BeatmapSubmission
                 return new ErrorResponse("Invalid filename detected").ToActionResult();
 
             var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmap, beatmapContents);
-            // TODO: double-check that the patched archive is actually meaningfully different from the previous one
-            await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db);
 
-            await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
+            if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db))
+                await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
+
             return NoContent();
         }
 
@@ -342,13 +343,33 @@ namespace osu.Server.BeatmapSubmission
             await connection.SetBeatmapSetOnlineStatusAsync(beatmapSet.beatmapset_id, (BeatmapOnlineStatus)requestTarget, transaction);
         }
 
-        private async Task updateBeatmapSetFromArchiveAsync(uint beatmapSetId, Stream beatmapStream, MySqlConnection db)
+        /// <summary>
+        /// Performs all relevant update operations on a beatmap set, given a stream with the full contents of its package.
+        /// </summary>
+        /// <returns>
+        /// <see langword="true"/> if any change was actually performed.
+        /// <see langword="false"/> if the supplied package is functionally equivalent to the previous version and as such there is nothing to be done.
+        /// </returns>
+        private async Task<bool> updateBeatmapSetFromArchiveAsync(uint beatmapSetId, Stream beatmapStream, MySqlConnection db)
         {
             using var archiveReader = new ZipArchiveReader(beatmapStream);
             var parseResult = BeatmapPackageParser.Parse(beatmapSetId, archiveReader);
             using var transaction = await db.BeginTransactionAsync();
 
             HashSet<uint> beatmapIds = (await db.GetBeatmapIdsInSetAsync(beatmapSetId, transaction)).ToHashSet();
+
+            (beatmapset_version, PackageFile[] files)? lastVersion = await db.GetLatestBeatmapsetVersionAsync(beatmapSetId, transaction);
+
+            if (lastVersion != null)
+            {
+                HashSet<PackageFile> fileSet = lastVersion.Value.files.ToHashSet(new PackageFileEqualityComparer());
+
+                if (fileSet.SetEquals(parseResult.Files))
+                {
+                    await transaction.RollbackAsync();
+                    return false;
+                }
+            }
 
             foreach (var versionedFile in parseResult.Files)
                 versionedFile.VersionFile.file_id = await db.InsertBeatmapsetFileAsync(versionedFile.File, transaction);
@@ -389,6 +410,7 @@ namespace osu.Server.BeatmapSubmission
             }
 
             await legacyIO.RefreshBeatmapSetCacheAsync(beatmapSetId);
+            return true;
         }
 
         /// <summary>
