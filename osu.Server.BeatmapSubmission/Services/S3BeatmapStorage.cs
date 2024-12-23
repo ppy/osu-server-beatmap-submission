@@ -19,26 +19,43 @@ namespace osu.Server.BeatmapSubmission.Services
         private const string osz_directory = "osz";
         private const string versioned_file_directory = "beatmap_files";
 
-        private static AmazonS3Client getClient() => new AmazonS3Client(
-            new BasicAWSCredentials(AppSettings.S3AccessKey, AppSettings.S3SecretKey),
-            new AmazonS3Config
-            {
-                CacheHttpClient = true,
-                HttpClientCacheSize = 32,
-                RegionEndpoint = RegionEndpoint.USWest1,
-                UseHttp = true,
-                ForcePathStyle = true,
-                RetryMode = RequestRetryMode.Legacy,
-                MaxErrorRetry = 5,
-                Timeout = TimeSpan.FromMinutes(1),
-            });
+        private readonly AmazonS3Client client;
+
+        public S3BeatmapStorage()
+        {
+            client = new AmazonS3Client(
+                new BasicAWSCredentials(AppSettings.S3AccessKey, AppSettings.S3SecretKey),
+                new AmazonS3Config
+                {
+                    CacheHttpClient = true,
+                    HttpClientCacheSize = 32,
+                    RegionEndpoint = RegionEndpoint.USWest1,
+                    UseHttp = true,
+                    ForcePathStyle = true,
+                    RetryMode = RequestRetryMode.Legacy,
+                    MaxErrorRetry = 5,
+                    Timeout = TimeSpan.FromMinutes(1),
+                });
+        }
 
         public async Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage)
         {
-            using var client = getClient();
-
             var stream = new MemoryStream(beatmapPackage);
-            await client.PutObjectAsync(new PutObjectRequest
+            using var archiveReader = new ZipArchiveReader(stream);
+
+            var files = new List<byte[]>();
+
+            foreach (string filename in archiveReader.Filenames)
+                files.Add(await archiveReader.GetStream(filename).ReadAllBytesToArrayAsync());
+
+            await Task.WhenAll(
+                uploadBeatmapPackage(beatmapSetId, beatmapPackage, stream),
+                uploadBeatmapFiles(files));
+        }
+
+        private Task<PutObjectResponse> uploadBeatmapPackage(uint beatmapSetId, byte[] beatmapPackage, MemoryStream stream)
+        {
+            return client.PutObjectAsync(new PutObjectRequest
             {
                 BucketName = AppSettings.S3BucketName,
                 Key = getPathToPackage(beatmapSetId),
@@ -49,34 +66,33 @@ namespace osu.Server.BeatmapSubmission.Services
                 },
                 InputStream = stream,
             });
+        }
 
-            // S3 sdk closes that existing stream... for whatever reason...
-            stream = new MemoryStream(beatmapPackage);
-            using var archiveReader = new ZipArchiveReader(stream);
-
-            foreach (string filename in archiveReader.Filenames)
-            {
-                var fileStream = archiveReader.GetStream(filename);
-                long length = fileStream.Length;
-                string sha2 = fileStream.ComputeSHA2Hash();
-
-                await client.PutObjectAsync(new PutObjectRequest
+        private Task uploadBeatmapFiles(List<byte[]> files)
+        {
+            return Parallel.ForEachAsync(
+                files,
+                async (file, cancellationToken) =>
                 {
-                    BucketName = AppSettings.S3BucketName,
-                    Key = getPathToVersionedFile(sha2),
-                    Headers =
+                    var fileStream = new MemoryStream(file);
+                    long length = file.Length;
+                    string sha2 = fileStream.ComputeSHA2Hash();
+
+                    await client.PutObjectAsync(new PutObjectRequest
                     {
-                        ContentLength = length,
-                    },
-                    InputStream = fileStream,
+                        BucketName = AppSettings.S3BucketName,
+                        Key = getPathToVersionedFile(sha2),
+                        Headers =
+                        {
+                            ContentLength = length,
+                        },
+                        InputStream = fileStream,
+                    }, cancellationToken);
                 });
-            }
         }
 
         public async Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory)
         {
-            using var client = getClient();
-
             using var response = await client.GetObjectAsync(AppSettings.S3BucketName, getPathToPackage(beatmapSetId));
             // S3-provided `HashStream` does not support seeking which `ZipArchiveReader` does not like.
             var memoryStream = new MemoryStream();
@@ -100,7 +116,6 @@ namespace osu.Server.BeatmapSubmission.Services
 
         public async Task<Stream> PackageBeatmapSetFilesAsync(IEnumerable<PackageFile> files)
         {
-            using var client = getClient();
             var memoryStream = new MemoryStream();
 
             using (var zipWriter = new ZipWriter(memoryStream, BeatmapPackagePatcher.DEFAULT_ZIP_WRITER_OPTIONS))
