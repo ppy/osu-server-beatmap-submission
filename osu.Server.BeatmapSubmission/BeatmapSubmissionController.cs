@@ -1,7 +1,6 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
-using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -97,7 +96,7 @@ namespace osu.Server.BeatmapSubmission
 
                 if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
                 {
-                    await reviveBeatmapSet(db, userId, beatmapSet, transaction);
+                    await reviveBeatmapSet(db, userId, beatmapSet, request.Target, transaction);
                     beatmapRevived = true;
                 }
 
@@ -323,7 +322,7 @@ namespace osu.Server.BeatmapSubmission
             return (quota, (uint)Math.Max((int)quota - (int)unrankedCount, 0));
         }
 
-        private static async Task reviveBeatmapSet(MySqlConnection connection, uint userId, osu_beatmapset beatmapSet, MySqlTransaction? transaction = null)
+        private static async Task reviveBeatmapSet(MySqlConnection connection, uint userId, osu_beatmapset beatmapSet, BeatmapSubmissionTarget requestTarget, MySqlTransaction? transaction = null)
         {
             if (beatmapSet.download_disabled > 0)
                 throw new InvariantException("Could not perform this action. Please send an e-mail to support@ppy.sh to follow up on this.");
@@ -332,18 +331,7 @@ namespace osu.Server.BeatmapSubmission
             if (remainingSlots <= 0)
                 throw new InvariantException("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.");
 
-            await connection.ExecuteAsync("UPDATE `osu_beatmapsets` SET `approved` = -1 WHERE `beatmapset_id` = @beatmapset_id",
-                new
-                {
-                    beatmapset_id = beatmapSet.beatmapset_id,
-                },
-                transaction);
-            await connection.ExecuteAsync("UPDATE `osu_beatmaps` SET `approved` = -1 WHERE `beatmapset_id` = @beatmapset_id",
-                new
-                {
-                    beatmapset_id = beatmapSet.beatmapset_id,
-                },
-                transaction);
+            await connection.SetBeatmapSetOnlineStatusAsync(beatmapSet.beatmapset_id, (BeatmapOnlineStatus)requestTarget, transaction);
         }
 
         private async Task updateBeatmapSetFromArchiveAsync(uint beatmapSetId, Stream beatmapStream, MySqlConnection db)
