@@ -397,5 +397,24 @@ namespace osu.Server.BeatmapSubmission
                 },
                 transaction);
         }
+
+        public static async Task<IEnumerable<osu_mirror>> GetMirrorsRequiringUpdateAsync(this MySqlConnection db, MySqlTransaction? transaction = null)
+        {
+            return await db.QueryAsync<osu_mirror>(
+                "SELECT * FROM `osu_mirrors` WHERE `version` > 1 AND `perform_updates` > 0",
+                transaction: transaction);
+        }
+
+        public static async Task MarkPendingPurgeAsync(this MySqlConnection db, osu_mirror mirror, uint beatmapSetId, MySqlTransaction? transaction = null)
+        {
+            await db.ExecuteAsync(
+                "UPDATE `osu_mirrors` SET `pending_purge` = CONCAT(IFNULL(`pending_purge`, ''), @beatmapset_id) WHERE `mirror_id` = @mirror_id",
+                new
+                {
+                    beatmapset_id = beatmapSetId,
+                    mirror_id = mirror.mirror_id
+                },
+                transaction);
+        }
     }
 }

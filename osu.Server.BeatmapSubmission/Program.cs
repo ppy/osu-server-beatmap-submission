@@ -43,6 +43,7 @@ namespace osu.Server.BeatmapSubmission
                     builder.Services.AddTransient<BeatmapPackagePatcher>();
                     builder.Services.AddHttpClient();
                     builder.Services.AddTransient<ILegacyIO, LegacyIO>();
+                    builder.Services.AddTransient<IMirrorService, NoOpMirrorService>();
                     builder.Services.AddSwaggerGen(c =>
                     {
                         c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, Assembly.GetExecutingAssembly().GetName().Name + ".xml"));
@@ -57,6 +58,7 @@ namespace osu.Server.BeatmapSubmission
                     builder.Services.AddTransient<BeatmapPackagePatcher>();
                     builder.Services.AddHttpClient();
                     builder.Services.AddTransient<ILegacyIO, LegacyIO>();
+                    builder.Services.AddTransient<IMirrorService, MirrorService>();
                     break;
                 }
             }
