@@ -46,6 +46,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                     services.AddTransient<IBeatmapStorage>(_ => beatmapStorage);
                     services.AddTransient<BeatmapPackagePatcher>();
                     services.AddTransient<ILegacyIO>(_ => mockLegacyIO.Object);
+                    services.AddTransient<IMirrorService, NoOpMirrorService>();
                 });
             }).CreateClient();
         }
