@@ -93,8 +93,7 @@ namespace osu.Server.BeatmapSubmission.Services
         {
             using var response = await client.GetObjectAsync(AppSettings.S3BucketName, getPathToPackage(beatmapSetId));
             // S3-provided `HashStream` does not support seeking which `ZipArchiveReader` does not like.
-            var memoryStream = new MemoryStream();
-            await response.ResponseStream.CopyToAsync(memoryStream);
+            var memoryStream = new MemoryStream(await response.ResponseStream.ReadAllRemainingBytesToArrayAsync());
 
             using var archiveReader = new ZipArchiveReader(memoryStream);
 
