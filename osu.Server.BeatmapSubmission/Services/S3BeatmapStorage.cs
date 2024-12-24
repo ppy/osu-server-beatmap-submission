@@ -27,8 +27,6 @@ namespace osu.Server.BeatmapSubmission.Services
                 new BasicAWSCredentials(AppSettings.S3AccessKey, AppSettings.S3SecretKey),
                 new AmazonS3Config
                 {
-                    CacheHttpClient = true,
-                    HttpClientCacheSize = 32,
                     RegionEndpoint = RegionEndpoint.USWest1,
                     UseHttp = true,
                     ForcePathStyle = true,
