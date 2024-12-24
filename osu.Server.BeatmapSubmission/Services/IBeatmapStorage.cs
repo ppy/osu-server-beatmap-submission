@@ -7,7 +7,7 @@ namespace osu.Server.BeatmapSubmission.Services
 {
     public interface IBeatmapStorage
     {
-        Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage);
+        Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage, BeatmapPackageParseResult result);
 
         Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory);
 

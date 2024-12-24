@@ -20,7 +20,7 @@ namespace osu.Server.BeatmapSubmission.Services
             BaseDirectory = directory ?? AppSettings.LocalBeatmapStoragePath;
         }
 
-        public async Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage)
+        public async Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage, BeatmapPackageParseResult result)
         {
             string path = getPathToPackage(beatmapSetId);
             await File.WriteAllBytesAsync(path, beatmapPackage);

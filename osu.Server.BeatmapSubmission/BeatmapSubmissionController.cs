@@ -398,7 +398,7 @@ namespace osu.Server.BeatmapSubmission
             await transaction.CommitAsync();
 
             // TODO: the ACID implications on this happening post-commit are... interesting... not sure anything can be done better?
-            await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync());
+            await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync(), parseResult);
 
             if (await db.IsBeatmapSetNominatedAsync(beatmapSetId))
                 await legacyIO.DisqualifyBeatmapSetAsync(beatmapSetId, "This beatmap set was updated by the mapper after a nomination. Please ensure to re-check the beatmaps for new issues. If you are the mapper, please comment in this thread on what you changed.");

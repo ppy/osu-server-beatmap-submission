@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Globalization;
 using Amazon;
 using Amazon.Runtime;
 using Amazon.S3;
@@ -17,6 +18,7 @@ namespace osu.Server.BeatmapSubmission.Services
     public class S3BeatmapStorage : IBeatmapStorage
     {
         private const string osz_directory = "osz";
+        private const string osu_directory = "beatmaps";
         private const string versioned_file_directory = "beatmap_files";
 
         private readonly AmazonS3Client client;
@@ -36,19 +38,32 @@ namespace osu.Server.BeatmapSubmission.Services
                 });
         }
 
-        public async Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage)
+        public async Task StoreBeatmapSetAsync(uint beatmapSetId, byte[] beatmapPackage, BeatmapPackageParseResult result)
         {
             var stream = new MemoryStream(beatmapPackage);
             using var archiveReader = new ZipArchiveReader(stream);
 
-            var files = new List<byte[]>();
+            var allFiles = new List<byte[]>();
+            var beatmapFiles = new List<(int beatmapId, byte[] contents)>();
+
+            Dictionary<string, int> beatmapFilenames = result.Files
+                                                             .Where(f => f.BeatmapContent != null)
+                                                             .ToDictionary(f => f.BeatmapContent!.Filename, f => f.BeatmapContent!.Beatmap.BeatmapInfo.OnlineID);
 
             foreach (string filename in archiveReader.Filenames)
-                files.Add(await archiveReader.GetStream(filename).ReadAllBytesToArrayAsync());
+            {
+                byte[] contents = await archiveReader.GetStream(filename).ReadAllBytesToArrayAsync();
 
-            await Task.WhenAll(
+                allFiles.Add(contents);
+                if (beatmapFilenames.TryGetValue(filename, out int beatmapId))
+                    beatmapFiles.Add((beatmapId, contents));
+            }
+
+            await Task.WhenAll([
                 uploadBeatmapPackage(beatmapSetId, beatmapPackage, stream),
-                uploadBeatmapFiles(files));
+                ..uploadAllVersionedFiles(allFiles),
+                ..uploadAllBeatmapFiles(beatmapFiles)
+            ]);
         }
 
         private Task<PutObjectResponse> uploadBeatmapPackage(uint beatmapSetId, byte[] beatmapPackage, MemoryStream stream)
@@ -63,30 +78,52 @@ namespace osu.Server.BeatmapSubmission.Services
                     ContentType = "application/x-osu-beatmap-archive",
                 },
                 InputStream = stream,
+                CannedACL = S3CannedACL.Private,
             });
         }
 
-        private Task uploadBeatmapFiles(List<byte[]> files)
+        private IEnumerable<Task> uploadAllVersionedFiles(List<byte[]> files)
         {
-            return Parallel.ForEachAsync(
-                files,
-                async (file, cancellationToken) =>
-                {
-                    var fileStream = new MemoryStream(file);
-                    long length = file.Length;
-                    string sha2 = fileStream.ComputeSHA2Hash();
+            return files.Select(file => Task.Run(async () =>
+            {
+                var fileStream = new MemoryStream(file);
+                long length = file.Length;
+                string sha2 = fileStream.ComputeSHA2Hash();
 
-                    await client.PutObjectAsync(new PutObjectRequest
+                await client.PutObjectAsync(new PutObjectRequest
+                {
+                    BucketName = AppSettings.S3BucketName,
+                    Key = getPathToVersionedFile(sha2),
+                    Headers =
                     {
-                        BucketName = AppSettings.S3BucketName,
-                        Key = getPathToVersionedFile(sha2),
-                        Headers =
-                        {
-                            ContentLength = length,
-                        },
-                        InputStream = fileStream,
-                    }, cancellationToken);
+                        ContentLength = length,
+                    },
+                    InputStream = fileStream,
+                    CannedACL = S3CannedACL.Private,
                 });
+            }));
+        }
+
+        private IEnumerable<Task> uploadAllBeatmapFiles(List<(int beatmapId, byte[] contents)> beatmapFiles)
+        {
+            return beatmapFiles.Select(file => Task.Run(async () =>
+            {
+                var fileStream = new MemoryStream(file.contents);
+                long length = fileStream.Length;
+
+                await client.PutObjectAsync(new PutObjectRequest
+                {
+                    BucketName = AppSettings.S3BucketName,
+                    Key = getPathToBeatmapFile(file.beatmapId),
+                    Headers =
+                    {
+                        ContentLength = length,
+                        ContentType = "text/plain",
+                    },
+                    InputStream = fileStream,
+                    CannedACL = S3CannedACL.Private,
+                });
+            }));
         }
 
         public async Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory)
@@ -131,5 +168,7 @@ namespace osu.Server.BeatmapSubmission.Services
         private static string getPathToPackage(uint beatmapSetId) => Path.Combine(osz_directory, BeatmapPackageParser.PackageFilenameFor(beatmapSetId));
 
         private static string getPathToVersionedFile(string sha2) => Path.Combine(versioned_file_directory, sha2);
+
+        private static string getPathToBeatmapFile(int beatmapId) => Path.Combine(osu_directory, beatmapId.ToString(CultureInfo.InvariantCulture));
     }
 }
