@@ -59,6 +59,7 @@ namespace osu.Server.BeatmapSubmission
 
             uint? beatmapSetId = request.BeatmapSetID;
             uint[] existingBeatmaps = [];
+            bool beatmapRevived = false;
 
             using var transaction = await db.BeginTransactionAsync();
 
@@ -93,8 +94,11 @@ namespace osu.Server.BeatmapSubmission
                 if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
                     return Forbid();
 
-                if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard && remainingSlots <= 0)
-                    return new ErrorResponse("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.").ToActionResult();
+                if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
+                {
+                    await reviveBeatmapSet(db, userId, beatmapSet, request.Target, transaction);
+                    beatmapRevived = true;
+                }
 
                 existingBeatmaps = (await db.GetBeatmapIdsInSetAsync(beatmapSetId.Value, transaction)).ToArray();
             }
@@ -127,6 +131,9 @@ namespace osu.Server.BeatmapSubmission
             await db.UpdateBeatmapCountForSet(beatmapSetId.Value, totalBeatmapCount, transaction);
 
             await transaction.CommitAsync();
+
+            if (beatmapRevived)
+                await legacyIO.BroadcastReviveBeatmapSetEventAsync(beatmapSetId.Value);
 
             return Ok(new PutBeatmapSetResponse
             {
@@ -176,12 +183,7 @@ namespace osu.Server.BeatmapSubmission
                 return Forbid();
 
             if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
-            {
-                (_, uint remainingSlots) = await getUploadQuota(db, userId);
-                if (remainingSlots <= 0)
-                    return new ErrorResponse("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.").ToActionResult();
-                // TODO: revive the map otherwise
-            }
+                return new ErrorResponse("The beatmap set must be revived first.").ToActionResult();
 
             using var beatmapStream = beatmapArchive.OpenReadStream();
 
@@ -236,12 +238,7 @@ namespace osu.Server.BeatmapSubmission
                 return NotFound();
 
             if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
-            {
-                (_, uint remainingSlots) = await getUploadQuota(db, userId);
-                if (remainingSlots <= 0)
-                    return new ErrorResponse("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.").ToActionResult();
-                // TODO: revive the map otherwise
-            }
+                return new ErrorResponse("The beatmap set must be revived first.").ToActionResult();
 
             if (filesChanged.Any(f => SanityCheckHelpers.IncursPathTraversalRisk(f.FileName)))
                 return new ErrorResponse("Invalid filename detected").ToActionResult();
@@ -323,6 +320,18 @@ namespace osu.Server.BeatmapSubmission
                 ? 8 + Math.Min(12, rankedCount)
                 : 4 + Math.Min(4, rankedCount);
             return (quota, (uint)Math.Max((int)quota - (int)unrankedCount, 0));
+        }
+
+        private static async Task reviveBeatmapSet(MySqlConnection connection, uint userId, osu_beatmapset beatmapSet, BeatmapSubmissionTarget requestTarget, MySqlTransaction? transaction = null)
+        {
+            if (beatmapSet.download_disabled > 0)
+                throw new InvariantException("Could not perform this action. Please send an e-mail to support@ppy.sh to follow up on this.");
+
+            (_, uint remainingSlots) = await getUploadQuota(connection, userId, transaction);
+            if (remainingSlots <= 0)
+                throw new InvariantException("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.");
+
+            await connection.SetBeatmapSetOnlineStatusAsync(beatmapSet.beatmapset_id, (BeatmapOnlineStatus)requestTarget, transaction);
         }
 
         private async Task updateBeatmapSetFromArchiveAsync(uint beatmapSetId, Stream beatmapStream, MySqlConnection db)

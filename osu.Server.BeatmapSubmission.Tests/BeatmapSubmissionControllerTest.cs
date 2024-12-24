@@ -550,6 +550,68 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
+        [Theory]
+        [InlineData(BeatmapSubmissionTarget.WIP)]
+        [InlineData(BeatmapSubmissionTarget.Pending)]
+        public async Task TestPutBeatmapSet_ExistingSet_BeatmapRevivedFromGraveyard(BeatmapSubmissionTarget status)
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `osu_subscriber`) VALUES (1000, 'test', 'JP', '', '', '', '', 1)");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
+
+            await db.ExecuteAsync("INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -2, 0, 1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
+                await db.ExecuteAsync("INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -2)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = 1000,
+                BeatmapsToCreate = 3,
+                BeatmapsToKeep = [5001, 5003, 5005],
+                Target = status,
+            });
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.True(response.IsSuccessStatusCode);
+            WaitForDatabaseState("SELECT COUNT(1) FROM `osu_beatmapsets` WHERE `approved` = @approved", 1, CancellationToken, new { approved = (int)status });
+            WaitForDatabaseState("SELECT COUNT(1) FROM `osu_beatmapsets` WHERE `approved` = -2", 0, CancellationToken);
+            WaitForDatabaseState("SELECT COUNT(1) FROM `osu_beatmaps` WHERE `approved` = @approved AND `deleted_at` IS NULL", 6, CancellationToken, new { approved = (int)status });
+            mockLegacyIO.Verify(m => m.BroadcastReviveBeatmapSetEventAsync(1000), Times.Once);
+        }
+
+        [Theory]
+        [InlineData(BeatmapSubmissionTarget.WIP)]
+        [InlineData(BeatmapSubmissionTarget.Pending)]
+        public async Task TestPutBeatmapSet_ExistingSet_RevivalFailsDueToDownloadDisabled(BeatmapSubmissionTarget status)
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `osu_subscriber`) VALUES (1000, 'test', 'JP', '', '', '', '', 1)");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
+
+            await db.ExecuteAsync("INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`, `download_disabled`) VALUES (1000, 1000, 'test user', -2, 0, 1, CURRENT_TIMESTAMP, 1)");
+
+            foreach (uint beatmapId in new uint[] { 5001, 5002, 5003, 5004, 5005 })
+                await db.ExecuteAsync("INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 1000, -2)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            request.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = 1000,
+                BeatmapsToCreate = 3,
+                BeatmapsToKeep = [5001, 5003, 5005],
+                Target = status,
+            });
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            Assert.Equal("Could not perform this action. Please send an e-mail to support@ppy.sh to follow up on this.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        }
+
         [Fact]
         public async Task TestUploadFullPackage()
         {
@@ -705,7 +767,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
-        public async Task TestUploadFullPackage_FailsIfBeatmapQuotaExceeded()
+        public async Task TestUploadFullPackage_FailsOnGraveyardedBeatmaps()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
@@ -729,7 +791,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-            Assert.Equal("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+            Assert.Equal("The beatmap set must be revived first.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]
@@ -1071,7 +1133,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
-        public async Task TestPatchPackage_FailsIfQuotaExceeded()
+        public async Task TestPatchPackage_FailsOnGraveyardedBeatmaps()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
@@ -1101,7 +1163,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
             Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-            Assert.Equal("Beatmap is in the graveyard and you don't have enough remaining upload quota to resurrect it.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+            Assert.Equal("The beatmap set must be revived first.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]
