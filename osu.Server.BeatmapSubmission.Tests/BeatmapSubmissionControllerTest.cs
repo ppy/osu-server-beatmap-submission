@@ -683,6 +683,52 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal(7.5f, maniaBeatmap.diff_overall);
             Assert.Equal(5f, maniaBeatmap.diff_approach);
             Assert.Equal(3, maniaBeatmap.playmode);
+
+            mockLegacyIO.Verify(lio => lio.BroadcastNewBeatmapSetEventAsync(241526), Times.Once);
+        }
+
+        [Fact]
+        public async Task TestUploadFullPackage_DoesNothingIfPreviousVersionIsTheSame()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            // first upload
+            {
+                var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
+
+                using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+                using var stream = TestResources.GetResource(osz_filename)!;
+                content.Add(new StreamContent(stream), "beatmapArchive", osz_filename);
+                request.Content = content;
+                request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+                var response = await Client.SendAsync(request);
+                Assert.True(response.IsSuccessStatusCode);
+                mockLegacyIO.Verify(lio => lio.BroadcastNewBeatmapSetEventAsync(241526), Times.Once);
+            }
+
+            mockLegacyIO.Invocations.Clear();
+
+            // second upload, using same file
+            {
+                var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
+
+                using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+                using var stream = TestResources.GetResource(osz_filename)!;
+                content.Add(new StreamContent(stream), "beatmapArchive", osz_filename);
+                request.Content = content;
+                request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+                var response = await Client.SendAsync(request);
+                Assert.True(response.IsSuccessStatusCode);
+                mockLegacyIO.VerifyNoOtherCalls();
+            }
         }
 
         [Fact]
@@ -974,6 +1020,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             var renamedBeatmap = await db.QuerySingleAsync<osu_beatmap>(@"SELECT * FROM `osu_beatmaps` WHERE `beatmap_id` = 557810");
             Assert.Equal("Platter 2", renamedBeatmap.version);
             mockLegacyIO.Verify(io => io.DisqualifyBeatmapSetAsync(241526, It.IsAny<string>()), Times.Never);
+            mockLegacyIO.Verify(lio => lio.BroadcastUpdateBeatmapSetEventAsync(241526, 1000), Times.Once);
         }
 
         [Fact]
@@ -1322,6 +1369,8 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var renamedBeatmap = await db.QuerySingleAsync<osu_beatmap>(@"SELECT * FROM `osu_beatmaps` WHERE `beatmap_id` = 557810");
             Assert.Equal("Platter 2", renamedBeatmap.version);
+
+            mockLegacyIO.Verify(lio => lio.BroadcastUpdateBeatmapSetEventAsync(241526, 2000), Times.Once);
         }
 
         [Fact]
@@ -1358,6 +1407,8 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var renamedBeatmap = await db.QuerySingleAsync<osu_beatmap>(@"SELECT * FROM `osu_beatmaps` WHERE `beatmap_id` = 557810");
             Assert.Equal("Platter 2", renamedBeatmap.version);
+
+            mockLegacyIO.Verify(lio => lio.BroadcastUpdateBeatmapSetEventAsync(241526, 2000), Times.Once);
         }
 
         [Fact]

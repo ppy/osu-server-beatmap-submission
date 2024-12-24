@@ -6,7 +6,6 @@ using osu.Framework.Extensions;
 using osu.Game.IO.Archives;
 using osu.Server.BeatmapSubmission.Configuration;
 using osu.Server.BeatmapSubmission.Models;
-using osu.Server.BeatmapSubmission.Models.API.Responses;
 using SharpCompress.Writers;
 using SharpCompress.Writers.Zip;
 
@@ -42,24 +41,6 @@ namespace osu.Server.BeatmapSubmission.Services
                 using var targetStream = File.OpenWrite(targetPath);
                 await sourceStream.CopyToAsync(targetStream);
             }
-        }
-
-        public IEnumerable<BeatmapSetFile> ListBeatmapSetFiles(uint beatmapSetId)
-        {
-            string path = getPathToPackage(beatmapSetId);
-
-            if (!File.Exists(path))
-                return [];
-
-            using var stream = File.OpenRead(path);
-            using var archive = new ZipArchiveReader(stream);
-
-            var result = new List<BeatmapSetFile>();
-
-            foreach (string filename in archive.Filenames)
-                result.Add(new BeatmapSetFile(filename, archive.GetStream(filename).ComputeSHA2Hash()));
-
-            return result;
         }
 
         public async Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory)

@@ -276,15 +276,20 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
-        public static async Task<beatmapset_version?> GetLatestBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
+        public static async Task<(beatmapset_version, PackageFile[])?> GetLatestBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
         {
-            return await db.QuerySingleOrDefaultAsync<beatmapset_version?>(
+            var version = await db.QuerySingleOrDefaultAsync<beatmapset_version?>(
                 "SELECT * FROM `beatmapset_versions` WHERE `beatmapset_id` = @beatmapset_id ORDER BY `version_id` DESC LIMIT 1",
                 new
                 {
                     beatmapset_id = beatmapSetId
                 },
                 transaction);
+
+            if (version == null)
+                return null;
+
+            return (version, await getVersionFiles(db, version, transaction));
         }
 
         public static async Task<(beatmapset_version, PackageFile[])?> GetBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, ulong versionId, MySqlTransaction? transaction = null)
@@ -301,7 +306,12 @@ namespace osu.Server.BeatmapSubmission
             if (version == null)
                 return null;
 
-            PackageFile[] files = (await db.QueryAsync(
+            return (version, await getVersionFiles(db, version, transaction));
+        }
+
+        private static async Task<PackageFile[]> getVersionFiles(MySqlConnection db, beatmapset_version version, MySqlTransaction? transaction = null)
+        {
+            return (await db.QueryAsync(
                 """
                 SELECT `f`.`file_id`, `f`.`sha2_hash`, `f`.`file_size`, `vf`.`file_id` AS `versioned_file_id`, `vf`.`version_id`, `vf`.`filename` FROM `beatmapset_files` `f`
                 JOIN `beatmapset_version_files` `vf` ON `f`.`file_id` = `vf`.`file_id`
@@ -314,8 +324,6 @@ namespace osu.Server.BeatmapSubmission
                 },
                 transaction,
                 splitOn: "versioned_file_id")).ToArray();
-
-            return (version, files);
         }
 
         public static async Task<ulong> CreateBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
