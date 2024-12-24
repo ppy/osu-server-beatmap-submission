@@ -311,7 +311,7 @@ namespace osu.Server.BeatmapSubmission
 
         private static async Task<PackageFile[]> getVersionFiles(MySqlConnection db, beatmapset_version version, MySqlTransaction? transaction = null)
         {
-            PackageFile[] files = (await db.QueryAsync(
+            return (await db.QueryAsync(
                 """
                 SELECT `f`.`file_id`, `f`.`sha2_hash`, `f`.`file_size`, `vf`.`file_id` AS `versioned_file_id`, `vf`.`version_id`, `vf`.`filename` FROM `beatmapset_files` `f`
                 JOIN `beatmapset_version_files` `vf` ON `f`.`file_id` = `vf`.`file_id`
@@ -324,7 +324,6 @@ namespace osu.Server.BeatmapSubmission
                 },
                 transaction,
                 splitOn: "versioned_file_id")).ToArray();
-            return files;
         }
 
         public static async Task<ulong> CreateBeatmapsetVersionAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
