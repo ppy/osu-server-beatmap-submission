@@ -8,6 +8,7 @@ namespace osu.Server.BeatmapSubmission.Services
         Task DisqualifyBeatmapSetAsync(uint beatmapSetId, string message);
         Task BroadcastReviveBeatmapSetEventAsync(uint beatmapSetId);
         Task BroadcastNewBeatmapSetEventAsync(uint beatmapSetId);
+        Task BroadcastUpdateBeatmapSetEventAsync(uint beatmapSetId, uint userId);
         Task IndexBeatmapSetAsync(uint beatmapSetId);
         Task RefreshBeatmapSetCacheAsync(uint beatmapSetId);
     }

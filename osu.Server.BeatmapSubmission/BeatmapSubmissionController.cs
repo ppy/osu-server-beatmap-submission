@@ -194,6 +194,8 @@ namespace osu.Server.BeatmapSubmission
 
             if (newSubmission)
                 await legacyIO.BroadcastNewBeatmapSetEventAsync(beatmapSetId);
+            else
+                await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
 
             return NoContent();
         }
@@ -247,6 +249,8 @@ namespace osu.Server.BeatmapSubmission
             // TODO: double-check that the patched archive is actually meaningfully different from the previous one
             // TODO: ensure that after patching, all the `.osu`s that should be in the `.osz` ARE in the `.osz`, and ensure there are no EXTRA `.osu`s
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db);
+
+            await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
             return NoContent();
         }
 
@@ -299,6 +303,8 @@ namespace osu.Server.BeatmapSubmission
             var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmap, beatmapContents);
             // TODO: double-check that the patched archive is actually meaningfully different from the previous one
             await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db);
+
+            await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
             return NoContent();
         }
 
