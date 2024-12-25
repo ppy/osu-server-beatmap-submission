@@ -3,6 +3,7 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MySqlConnector;
 using osu.Framework.Extensions;
 using osu.Game.Beatmaps;
@@ -54,6 +55,7 @@ namespace osu.Server.BeatmapSubmission
         [Produces("application/json")]
         [ProducesResponseType(typeof(PutBeatmapSetResponse), 200)]
         [ProducesResponseType(typeof(ErrorResponse), 422)]
+        [EnableRateLimiting(Program.RATE_LIMIT_POLICY)]
         public async Task<IActionResult> PutBeatmapSetAsync([FromBody] PutBeatmapSetRequest request)
         {
             uint userId = User.GetUserId();
@@ -192,6 +194,7 @@ namespace osu.Server.BeatmapSubmission
         [Route("beatmapsets/{beatmapSetId}")]
         [ProducesResponseType(204)]
         [ProducesResponseType(typeof(ErrorResponse), 422)]
+        [EnableRateLimiting(Program.RATE_LIMIT_POLICY)]
         public async Task<IActionResult> UploadFullPackageAsync(
             [FromRoute] uint beatmapSetId,
             // TODO: this won't fly on production, biggest existing beatmap archives exceed buffering limits (`MultipartBodyLengthLimit` = 128MB specifically)
@@ -257,6 +260,7 @@ namespace osu.Server.BeatmapSubmission
         [Route("beatmapsets/{beatmapSetId}")]
         [ProducesResponseType(204)]
         [ProducesResponseType(typeof(ErrorResponse), 422)]
+        [EnableRateLimiting(Program.RATE_LIMIT_POLICY)]
         public async Task<IActionResult> PatchPackageAsync(
             [FromRoute] uint beatmapSetId,
             IFormFileCollection filesChanged,
@@ -314,6 +318,7 @@ namespace osu.Server.BeatmapSubmission
         [Route("beatmapsets/{beatmapSetId}/beatmaps/{beatmapId}")]
         [ProducesResponseType(204)]
         [ProducesResponseType(typeof(ErrorResponse), 422)]
+        [EnableRateLimiting(Program.RATE_LIMIT_POLICY)]
         public async Task<IActionResult> UploadGuestDifficultyAsync(
             [FromRoute] uint beatmapSetId,
             [FromRoute] uint beatmapId,
