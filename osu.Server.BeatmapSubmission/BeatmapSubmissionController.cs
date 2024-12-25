@@ -14,6 +14,7 @@ using osu.Server.BeatmapSubmission.Models.API.Responses;
 using osu.Server.BeatmapSubmission.Models.Database;
 using osu.Server.BeatmapSubmission.Services;
 using osu.Server.QueueProcessor;
+using StatsdClient;
 
 namespace osu.Server.BeatmapSubmission
 {
@@ -207,6 +208,7 @@ namespace osu.Server.BeatmapSubmission
                     await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
             }
 
+            DogStatsd.Increment("submissions_completed", tags: ["full"]);
             return NoContent();
         }
 
@@ -260,6 +262,7 @@ namespace osu.Server.BeatmapSubmission
             if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db))
                 await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
 
+            DogStatsd.Increment("submissions_completed", tags: ["update"]);
             return NoContent();
         }
 
@@ -314,6 +317,7 @@ namespace osu.Server.BeatmapSubmission
             if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db))
                 await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
 
+            DogStatsd.Increment("submissions_completed", tags: ["guest"]);
             return NoContent();
         }
 
