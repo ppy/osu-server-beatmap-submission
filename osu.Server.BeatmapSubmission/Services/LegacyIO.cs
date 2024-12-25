@@ -47,7 +47,7 @@ namespace osu.Server.BeatmapSubmission.Services
                     },
                 };
 
-                if (postObject != null)
+                if (serialisedPostObject != null)
                 {
                     httpRequestMessage.Content = new ByteArrayContent(Encoding.UTF8.GetBytes(serialisedPostObject));
                     httpRequestMessage.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
