@@ -18,7 +18,6 @@ namespace osu.Server.BeatmapSubmission.Services
     public class S3BeatmapStorage : IBeatmapStorage
     {
         private const string osz_directory = "osz";
-        private const string osu_directory = "beatmaps";
         private const string versioned_file_directory = "beatmap_files";
 
         private readonly AmazonS3Client client;
@@ -70,7 +69,7 @@ namespace osu.Server.BeatmapSubmission.Services
         {
             return client.PutObjectAsync(new PutObjectRequest
             {
-                BucketName = AppSettings.S3BucketName,
+                BucketName = AppSettings.S3CentralBucketName,
                 Key = getPathToPackage(beatmapSetId),
                 Headers =
                 {
@@ -92,7 +91,7 @@ namespace osu.Server.BeatmapSubmission.Services
 
                 await client.PutObjectAsync(new PutObjectRequest
                 {
-                    BucketName = AppSettings.S3BucketName,
+                    BucketName = AppSettings.S3CentralBucketName,
                     Key = getPathToVersionedFile(sha2),
                     Headers =
                     {
@@ -113,7 +112,7 @@ namespace osu.Server.BeatmapSubmission.Services
 
                 await client.PutObjectAsync(new PutObjectRequest
                 {
-                    BucketName = AppSettings.S3BucketName,
+                    BucketName = AppSettings.S3BeatmapsBucketName,
                     Key = getPathToBeatmapFile(file.beatmapId),
                     Headers =
                     {
@@ -128,7 +127,7 @@ namespace osu.Server.BeatmapSubmission.Services
 
         public async Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory)
         {
-            using var response = await client.GetObjectAsync(AppSettings.S3BucketName, getPathToPackage(beatmapSetId));
+            using var response = await client.GetObjectAsync(AppSettings.S3CentralBucketName, getPathToPackage(beatmapSetId));
             // S3-provided `HashStream` does not support seeking which `ZipArchiveReader` does not like.
             var memoryStream = new MemoryStream(await response.ResponseStream.ReadAllRemainingBytesToArrayAsync());
 
@@ -156,7 +155,7 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 foreach (var file in files)
                 {
-                    using var response = await client.GetObjectAsync(AppSettings.S3BucketName, getPathToVersionedFile(BitConverter.ToString(file.File.sha2_hash).Replace("-", string.Empty).ToLowerInvariant()));
+                    using var response = await client.GetObjectAsync(AppSettings.S3CentralBucketName, getPathToVersionedFile(BitConverter.ToString(file.File.sha2_hash).Replace("-", string.Empty).ToLowerInvariant()));
                     zipWriter.Write(file.VersionFile.filename, response.ResponseStream);
                 }
             }
@@ -169,6 +168,6 @@ namespace osu.Server.BeatmapSubmission.Services
 
         private static string getPathToVersionedFile(string sha2) => Path.Combine(versioned_file_directory, sha2);
 
-        private static string getPathToBeatmapFile(int beatmapId) => Path.Combine(osu_directory, beatmapId.ToString(CultureInfo.InvariantCulture));
+        private static string getPathToBeatmapFile(int beatmapId) => beatmapId.ToString(CultureInfo.InvariantCulture);
     }
 }

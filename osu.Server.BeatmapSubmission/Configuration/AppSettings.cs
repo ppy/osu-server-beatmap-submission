@@ -36,9 +36,14 @@ namespace osu.Server.BeatmapSubmission.Configuration
             ?? throw new InvalidOperationException("S3_SECRET_KEY environment variable not set. "
                                                    + "Please set the value of this variable to the correct secret key for the S3_ACCESS_KEY supplied.");
 
-        public static string S3BucketName =>
-            Environment.GetEnvironmentVariable("S3_BUCKET_NAME")
-            ?? throw new InvalidOperationException("S3_BUCKET_NAME environment variable not set. "
-                                                   + "Please set the value of this variable to the name of the bucket to be used for storing beatmaps on S3.");
+        public static string S3CentralBucketName =>
+            Environment.GetEnvironmentVariable("S3_CENTRAL_BUCKET_NAME")
+            ?? throw new InvalidOperationException("S3_CENTRAL_BUCKET_NAME environment variable not set. "
+                                                   + "Please set the value of this variable to the name of the bucket to be used for storing beatmap packages and versioned files on S3.");
+
+        public static string S3BeatmapsBucketName =>
+            Environment.GetEnvironmentVariable("S3_BEATMAPS_BUCKET_NAME")
+            ?? throw new InvalidOperationException("S3_BEATMAPS_BUCKET_NAME environment variable not set. "
+                                                   + "Please set the value of this variable to the name of the bucket to be used for storing .osu beatmap files on S3.");
     }
 }
