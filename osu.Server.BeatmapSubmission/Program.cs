@@ -1,3 +1,4 @@
+using System.Net;
 using System.Reflection;
 using JetBrains.Annotations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.Options;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Configuration;
 using osu.Server.BeatmapSubmission.Services;
+using StatsdClient;
 
 namespace osu.Server.BeatmapSubmission
 {
@@ -68,12 +70,32 @@ namespace osu.Server.BeatmapSubmission
                                                             + "Please set the value of this variable to a valid Sentry DSN to use for logging events.");
                     }
 
+                    if (AppSettings.DatadogAgentHost == null)
+                    {
+                        throw new InvalidOperationException("DD_AGENT_HOST environment variable not set. "
+                                                            + "Please set the value of this variable to a valid hostname of a Datadog agent.");
+                    }
+
                     break;
                 }
             }
 
             if (AppSettings.SentryDsn != null)
                 builder.WebHost.UseSentry(options => options.Dsn = AppSettings.SentryDsn);
+
+            if (AppSettings.DatadogAgentHost != null)
+            {
+                DogStatsd.Configure(new StatsdConfig
+                {
+                    StatsdServerName = AppSettings.DatadogAgentHost,
+                    Prefix = "osu.server.beatmap-submission",
+                    ConstantTags = new[]
+                    {
+                        $@"hostname:{Dns.GetHostName()}",
+                        $@"startup:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}"
+                    }
+                });
+            }
 
             var app = builder.Build();
 

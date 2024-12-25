@@ -41,4 +41,5 @@ For advanced testing purposes.
 | `S3_SECRET_KEY`              | The secret key corresponding to the `S3_ACCESS_KEY`.                                                                                               | ⚠ In staging/production configs  | None          |
 | `S3_BUCKET_NAME`             | The name of the S3 bucket to use for beatmap storage.                                                                                              | ⚠ In staging/production configs  | None          | 
 | `SENTRY_DSN`                 | A valid Sentry DSN to use for logging application events.                                                                                          | ⚠ In staging/production configs  | None          | 
+| `DD_AGENT_HOST`              | A hostname pointing to a Datadog agent instance to which metrics should be reported.                                                               | ⚠ In staging/production configs  | None          | 
 

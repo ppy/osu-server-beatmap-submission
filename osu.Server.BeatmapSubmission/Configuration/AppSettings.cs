@@ -42,5 +42,7 @@ namespace osu.Server.BeatmapSubmission.Configuration
                                                    + "Please set the value of this variable to the name of the bucket to be used for storing beatmaps on S3.");
 
         public static string? SentryDsn => Environment.GetEnvironmentVariable("SENTRY_DSN");
+
+        public static string? DatadogAgentHost => Environment.GetEnvironmentVariable("DD_AGENT_HOST");
     }
 }
