@@ -11,9 +11,12 @@ namespace osu.Server.BeatmapSubmission.Models
     /// </summary>
     public class InvariantException : Exception
     {
-        public InvariantException(string message)
+        public LogLevel Severity { get; }
+
+        public InvariantException(string message, LogLevel severity = LogLevel.Information)
             : base(message)
         {
+            Severity = severity;
         }
 
         public ErrorResponse ToResponseObject() => new ErrorResponse(Message);

@@ -21,10 +21,12 @@ namespace osu.Server.BeatmapSubmission.Services
         private const string osu_directory = "beatmaps";
         private const string versioned_file_directory = "beatmap_files";
 
+        private readonly ILogger<S3BeatmapStorage> logger;
         private readonly AmazonS3Client client;
 
-        public S3BeatmapStorage()
+        public S3BeatmapStorage(ILogger<S3BeatmapStorage> logger)
         {
+            this.logger = logger;
             client = new AmazonS3Client(
                 new BasicAWSCredentials(AppSettings.S3AccessKey, AppSettings.S3SecretKey),
                 new AmazonS3Config
@@ -61,13 +63,15 @@ namespace osu.Server.BeatmapSubmission.Services
 
             await Task.WhenAll([
                 uploadBeatmapPackage(beatmapSetId, beatmapPackage, stream),
-                ..uploadAllVersionedFiles(allFiles),
-                ..uploadAllBeatmapFiles(beatmapFiles)
+                ..uploadAllVersionedFiles(beatmapSetId, allFiles),
+                ..uploadAllBeatmapFiles(beatmapSetId, beatmapFiles)
             ]);
+            logger.LogInformation("All file uploads for beatmapset {beatmapSetId} concluded successfully.", beatmapSetId);
         }
 
         private Task<PutObjectResponse> uploadBeatmapPackage(uint beatmapSetId, byte[] beatmapPackage, MemoryStream stream)
         {
+            logger.LogInformation("Beginning upload of package for beatmapset {beatmapSetId}...", beatmapSetId);
             return client.PutObjectAsync(new PutObjectRequest
             {
                 BucketName = AppSettings.S3BucketName,
@@ -82,8 +86,9 @@ namespace osu.Server.BeatmapSubmission.Services
             });
         }
 
-        private IEnumerable<Task> uploadAllVersionedFiles(List<byte[]> files)
+        private IEnumerable<Task> uploadAllVersionedFiles(uint beatmapSetId, List<byte[]> files)
         {
+            logger.LogInformation("Beginning upload of all versioned files for beatmapset {beatmapSetId}...", beatmapSetId);
             return files.Select(file => Task.Run(async () =>
             {
                 var fileStream = new MemoryStream(file);
@@ -104,8 +109,9 @@ namespace osu.Server.BeatmapSubmission.Services
             }));
         }
 
-        private IEnumerable<Task> uploadAllBeatmapFiles(List<(int beatmapId, byte[] contents)> beatmapFiles)
+        private IEnumerable<Task> uploadAllBeatmapFiles(uint beatmapSetId, List<(int beatmapId, byte[] contents)> beatmapFiles)
         {
+            logger.LogInformation("Beginning upload of all .osu beatmap files for beatmapset {beatmapSetId}...", beatmapSetId);
             return beatmapFiles.Select(file => Task.Run(async () =>
             {
                 var fileStream = new MemoryStream(file.contents);
@@ -128,7 +134,10 @@ namespace osu.Server.BeatmapSubmission.Services
 
         public async Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory)
         {
+            logger.LogInformation("Retrieving package for beatmap set {beatmapSetId}", beatmapSetId);
             using var response = await client.GetObjectAsync(AppSettings.S3BucketName, getPathToPackage(beatmapSetId));
+            logger.LogInformation("Package for beatmap set {beatmapSetId} retrieved successfully.", beatmapSetId);
+
             // S3-provided `HashStream` does not support seeking which `ZipArchiveReader` does not like.
             var memoryStream = new MemoryStream(await response.ResponseStream.ReadAllRemainingBytesToArrayAsync());
 
@@ -152,6 +161,8 @@ namespace osu.Server.BeatmapSubmission.Services
         {
             var memoryStream = new MemoryStream();
 
+            logger.LogInformation("Retrieving requested files...");
+
             using (var zipWriter = new ZipWriter(memoryStream, BeatmapPackagePatcher.DEFAULT_ZIP_WRITER_OPTIONS))
             {
                 foreach (var file in files)
@@ -160,6 +171,8 @@ namespace osu.Server.BeatmapSubmission.Services
                     zipWriter.Write(file.VersionFile.filename, response.ResponseStream);
                 }
             }
+
+            logger.LogInformation("Package files retrieved successfully.");
 
             memoryStream.Seek(0, SeekOrigin.Begin);
             return memoryStream;

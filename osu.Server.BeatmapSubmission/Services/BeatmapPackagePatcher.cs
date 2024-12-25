@@ -83,7 +83,7 @@ namespace osu.Server.BeatmapSubmission.Services
             await beatmapStorage.ExtractBeatmapSetAsync(beatmapSetId, tempDirectory.FullName);
 
             if (beatmap.filename == null)
-                throw new InvalidOperationException("Could not find the old .osu file for the beatmap being modified.");
+                throw new InvariantException("Could not find the old .osu file for the beatmap being modified.", LogLevel.Warning);
 
             File.Delete(Path.Combine(tempDirectory.FullName, beatmap.filename));
 
