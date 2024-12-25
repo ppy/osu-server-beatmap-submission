@@ -40,5 +40,7 @@ namespace osu.Server.BeatmapSubmission.Configuration
             Environment.GetEnvironmentVariable("S3_BUCKET_NAME")
             ?? throw new InvalidOperationException("S3_BUCKET_NAME environment variable not set. "
                                                    + "Please set the value of this variable to the name of the bucket to be used for storing beatmaps on S3.");
+
+        public static string? SentryDsn => Environment.GetEnvironmentVariable("SENTRY_DSN");
     }
 }

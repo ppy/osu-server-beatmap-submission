@@ -40,4 +40,5 @@ For advanced testing purposes.
 | `S3_ACCESS_KEY`              | A valid Amazon S3 access key ID.                                                                                                                   | ⚠ In staging/production configs  | None          |
 | `S3_SECRET_KEY`              | The secret key corresponding to the `S3_ACCESS_KEY`.                                                                                               | ⚠ In staging/production configs  | None          |
 | `S3_BUCKET_NAME`             | The name of the S3 bucket to use for beatmap storage.                                                                                              | ⚠ In staging/production configs  | None          | 
+| `SENTRY_DSN`                 | A valid Sentry DSN to use for logging application events.                                                                                          | ⚠ In staging/production configs  | None          | 
 

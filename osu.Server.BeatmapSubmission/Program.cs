@@ -3,6 +3,7 @@ using JetBrains.Annotations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using osu.Server.BeatmapSubmission.Authentication;
+using osu.Server.BeatmapSubmission.Configuration;
 using osu.Server.BeatmapSubmission.Services;
 
 namespace osu.Server.BeatmapSubmission
@@ -24,7 +25,8 @@ namespace osu.Server.BeatmapSubmission
             {
                 logging.ClearProviders();
                 logging.AddConsole();
-                // TODO: sentry
+                if (AppSettings.SentryDsn != null)
+                    logging.AddSentry();
             });
 
             builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, OsuWebSharedJwtBearerOptions>();
@@ -59,9 +61,19 @@ namespace osu.Server.BeatmapSubmission
                     builder.Services.AddHttpClient();
                     builder.Services.AddTransient<ILegacyIO, LegacyIO>();
                     builder.Services.AddTransient<IMirrorService, MirrorService>();
+
+                    if (AppSettings.SentryDsn == null)
+                    {
+                        throw new InvalidOperationException("SENTRY_DSN environment variable not set. "
+                                                            + "Please set the value of this variable to a valid Sentry DSN to use for logging events.");
+                    }
+
                     break;
                 }
             }
+
+            if (AppSettings.SentryDsn != null)
+                builder.WebHost.UseSentry(options => options.Dsn = AppSettings.SentryDsn);
 
             var app = builder.Build();
 
