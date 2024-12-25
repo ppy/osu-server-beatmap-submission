@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Configuration;
+using osu.Server.BeatmapSubmission.Logging;
 using osu.Server.BeatmapSubmission.Services;
 using StatsdClient;
 
@@ -81,7 +82,15 @@ namespace osu.Server.BeatmapSubmission
             }
 
             if (AppSettings.SentryDsn != null)
-                builder.WebHost.UseSentry(options => options.Dsn = AppSettings.SentryDsn);
+            {
+                builder.Services.AddSingleton<ISentryUserFactory, UserFactory>();
+                builder.WebHost.UseSentry(options =>
+                {
+                    options.Environment = builder.Environment.EnvironmentName;
+                    options.SendDefaultPii = true;
+                    options.Dsn = AppSettings.SentryDsn;
+                });
+            }
 
             if (AppSettings.DatadogAgentHost != null)
             {
