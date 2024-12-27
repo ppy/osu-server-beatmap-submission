@@ -39,5 +39,6 @@ For advanced testing purposes.
 | `SHARED_INTEROP_SECRET`      | The interop secret used for legacy IO requests. Value should match same environment variable in target `osu-web` instance.                         |              ✔️ Yes              | None          |
 | `S3_ACCESS_KEY`              | A valid Amazon S3 access key ID.                                                                                                                   | ⚠ In staging/production configs  | None          |
 | `S3_SECRET_KEY`              | The secret key corresponding to the `S3_ACCESS_KEY`.                                                                                               | ⚠ In staging/production configs  | None          |
-| `S3_BUCKET_NAME`             | The name of the S3 bucket to use for beatmap storage.                                                                                              | ⚠ In staging/production configs  | None          | 
+| `S3_CENTRAL_BUCKET_NAME`     | The name of the S3 bucket to use for storing beatmap packages and versioned files.                                                                 | ⚠ In staging/production configs  | None          | 
+| `S3_BEATMAPS_BUCKET_NAME`    | The name of the S3 bucket to use for storing .osu beatmap files.                                                                                   | ⚠ In staging/production configs  | None          | 
 
