@@ -408,7 +408,7 @@ namespace osu.Server.BeatmapSubmission
         public static async Task MarkPendingPurgeAsync(this MySqlConnection db, osu_mirror mirror, uint beatmapSetId, MySqlTransaction? transaction = null)
         {
             await db.ExecuteAsync(
-                "UPDATE `osu_mirrors` SET `pending_purge` = CONCAT(IFNULL(`pending_purge`, ''), @beatmapset_id) WHERE `mirror_id` = @mirror_id",
+                "UPDATE `osu_mirrors` SET `pending_purge` = CONCAT(`pending_purge`, ',', @beatmapset_id) WHERE `mirror_id` = @mirror_id",
                 new
                 {
                     beatmapset_id = beatmapSetId,
