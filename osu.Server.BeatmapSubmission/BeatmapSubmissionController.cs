@@ -23,12 +23,18 @@ namespace osu.Server.BeatmapSubmission
         private readonly IBeatmapStorage beatmapStorage;
         private readonly BeatmapPackagePatcher patcher;
         private readonly ILegacyIO legacyIO;
+        private readonly IMirrorService mirrorService;
 
-        public BeatmapSubmissionController(IBeatmapStorage beatmapStorage, BeatmapPackagePatcher patcher, ILegacyIO legacyIO)
+        public BeatmapSubmissionController(
+            IBeatmapStorage beatmapStorage,
+            BeatmapPackagePatcher patcher,
+            ILegacyIO legacyIO,
+            IMirrorService mirrorService)
         {
             this.beatmapStorage = beatmapStorage;
             this.patcher = patcher;
             this.legacyIO = legacyIO;
+            this.mirrorService = mirrorService;
         }
 
         /// <summary>
@@ -402,6 +408,8 @@ namespace osu.Server.BeatmapSubmission
 
             if (await db.IsBeatmapSetNominatedAsync(beatmapSetId))
                 await legacyIO.DisqualifyBeatmapSetAsync(beatmapSetId, "This beatmap set was updated by the mapper after a nomination. Please ensure to re-check the beatmaps for new issues. If you are the mapper, please comment in this thread on what you changed.");
+
+            await mirrorService.PurgeBeatmapSetAsync(db, beatmapSetId);
 
             if (!await db.IsBeatmapSetInProcessingQueueAsync(beatmapSetId))
             {
