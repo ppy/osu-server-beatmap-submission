@@ -65,7 +65,7 @@ namespace osu.Server.BeatmapSubmission
                 transaction) ?? 0;
         }
 
-        public static async Task PurgeInactiveBeatmapSetsForUserAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
+        public static async Task<uint[]> PurgeInactiveBeatmapSetsForUserAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
         {
             uint[] beatmapSetIds = (await db.QueryAsync<uint>(@"SELECT `beatmapset_id` FROM `osu_beatmapsets` WHERE `user_id` = @user_id AND `active` = -1 AND `deleted_at` IS NULL",
                 new
@@ -86,6 +86,8 @@ namespace osu.Server.BeatmapSubmission
                     user_id = userId,
                 },
                 transaction);
+
+            return beatmapSetIds;
         }
 
         public static Task<(uint unranked, uint ranked)> GetUserBeatmapSetCountAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)

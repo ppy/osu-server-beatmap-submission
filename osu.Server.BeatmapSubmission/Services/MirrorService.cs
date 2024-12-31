@@ -10,10 +10,12 @@ namespace osu.Server.BeatmapSubmission.Services
     public class MirrorService : IMirrorService
     {
         private readonly HttpClient client;
+        private readonly ILogger<MirrorService> logger;
 
-        public MirrorService(HttpClient client)
+        public MirrorService(HttpClient client, ILogger<MirrorService> logger)
         {
             this.client = client;
+            this.logger = logger;
         }
 
         public async Task PurgeBeatmapSetAsync(MySqlConnection db, uint beatmapSetId)
@@ -29,6 +31,8 @@ namespace osu.Server.BeatmapSubmission.Services
 
         private async Task<string?> performMirrorAction(osu_mirror mirror, string action, Dictionary<string, string> data)
         {
+            logger.LogInformation("Performing action {action} (data: {data}) on mirror {mirror}", action, data, mirror.base_url);
+
             data["ts"] = DateTimeOffset.Now.ToUnixTimeSeconds().ToString();
             data["action"] = action;
             data["cs"] = ($"{data.GetValueOrDefault("s")}{data.GetValueOrDefault("fd")}{data.GetValueOrDefault("fs")}{data.GetValueOrDefault("ts")}"
@@ -42,9 +46,9 @@ namespace osu.Server.BeatmapSubmission.Services
                 var response = await client.SendAsync(request);
                 return await response.Content.ReadAsStringAsync();
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // TODO: log error
+                logger.LogError(e, "Attempting to perform action {action} on mirror {mirror} failed", action, mirror.base_url);
                 return null;
             }
         }

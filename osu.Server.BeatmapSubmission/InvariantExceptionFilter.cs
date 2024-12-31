@@ -8,10 +8,20 @@ namespace osu.Server.BeatmapSubmission
 {
     public class InvariantExceptionFilter : IExceptionFilter
     {
+        private readonly ILogger<InvariantExceptionFilter> logger;
+
+        public InvariantExceptionFilter(ILogger<InvariantExceptionFilter> logger)
+        {
+            this.logger = logger;
+        }
+
         public void OnException(ExceptionContext context)
         {
             if (context.Exception is InvariantException invariantException)
+            {
                 context.Result = invariantException.ToResponseObject().ToActionResult();
+                logger.Log(invariantException.Severity, context.Exception, "Request rejected due to violated invariant");
+            }
         }
     }
 }

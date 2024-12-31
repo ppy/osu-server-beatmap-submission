@@ -12,10 +12,12 @@ namespace osu.Server.BeatmapSubmission.Services
     public class LegacyIO : ILegacyIO
     {
         private readonly HttpClient httpClient;
+        private readonly ILogger<LegacyIO> logger;
 
-        public LegacyIO(HttpClient httpClient)
+        public LegacyIO(HttpClient httpClient, ILogger<LegacyIO> logger)
         {
             this.httpClient = httpClient;
+            this.logger = logger;
         }
 
         private async Task runLegacyIO(HttpMethod method, string command, dynamic? postObject = null)
@@ -26,6 +28,9 @@ namespace osu.Server.BeatmapSubmission.Services
 
             long time = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             string url = $"{AppSettings.LegacyIODomain}/_lio/{command}{(command.Contains('?') ? "&" : "?")}timestamp={time}";
+
+            string? serialisedPostObject = postObject == null ? null : JsonSerializer.Serialize(postObject);
+            logger.LogDebug("Performing LIO request to {method} {url} (params: {params})", method, url, serialisedPostObject);
 
             try
             {
@@ -42,9 +47,9 @@ namespace osu.Server.BeatmapSubmission.Services
                     },
                 };
 
-                if (postObject != null)
+                if (serialisedPostObject != null)
                 {
-                    httpRequestMessage.Content = new ByteArrayContent(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(postObject)));
+                    httpRequestMessage.Content = new ByteArrayContent(Encoding.UTF8.GetBytes(serialisedPostObject));
                     httpRequestMessage.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
                 }
 
@@ -60,7 +65,7 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 if (retryCount-- > 0)
                 {
-                    Console.WriteLine($"Legacy IO request to {url} failed with {e}, retrying..");
+                    logger.LogError(e, "Legacy IO request to {url} failed, retrying ({retries} remaining)", url, retryCount);
                     Thread.Sleep(1000);
                     goto retry;
                 }

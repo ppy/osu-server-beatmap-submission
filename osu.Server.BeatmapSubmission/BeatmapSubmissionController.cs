@@ -14,23 +14,27 @@ using osu.Server.BeatmapSubmission.Models.API.Responses;
 using osu.Server.BeatmapSubmission.Models.Database;
 using osu.Server.BeatmapSubmission.Services;
 using osu.Server.QueueProcessor;
+using StatsdClient;
 
 namespace osu.Server.BeatmapSubmission
 {
     [Authorize]
     public class BeatmapSubmissionController : Controller
     {
+        private readonly ILogger<BeatmapSubmissionController> logger;
         private readonly IBeatmapStorage beatmapStorage;
         private readonly BeatmapPackagePatcher patcher;
         private readonly ILegacyIO legacyIO;
         private readonly IMirrorService mirrorService;
 
         public BeatmapSubmissionController(
+            ILogger<BeatmapSubmissionController> logger,
             IBeatmapStorage beatmapStorage,
             BeatmapPackagePatcher patcher,
             ILegacyIO legacyIO,
             IMirrorService mirrorService)
         {
+            this.logger = logger;
             this.beatmapStorage = beatmapStorage;
             this.patcher = patcher;
             this.legacyIO = legacyIO;
@@ -56,12 +60,10 @@ namespace osu.Server.BeatmapSubmission
 
             using var db = await DatabaseAccess.GetConnectionAsync();
 
-            ErrorResponse? userError = await checkUserAccountStanding(db, userId);
-            if (userError != null)
-                return userError.ToActionResult();
+            await checkUserAccountStanding(db, userId);
 
             if (await db.GetUserMonthlyPlaycountAsync(userId) < 5)
-                return new ErrorResponse("Thanks for your contribution, but please play the game first!").ToActionResult();
+                throw new InvariantException("Thanks for your contribution, but please play the game first!");
 
             uint? beatmapSetId = request.BeatmapSetID;
             uint[] existingBeatmaps = [];
@@ -69,19 +71,22 @@ namespace osu.Server.BeatmapSubmission
 
             using var transaction = await db.BeginTransactionAsync();
 
-            await db.PurgeInactiveBeatmapSetsForUserAsync(userId, transaction);
+            uint[] purgedMaps = await db.PurgeInactiveBeatmapSetsForUserAsync(userId, transaction);
+            if (purgedMaps.Length > 0)
+                logger.LogInformation("Purging inactive beatmap sets for user {userId} (ids: {purgedMaps})", userId, purgedMaps);
+
             (uint totalSlots, uint remainingSlots) = await getUploadQuota(db, userId, transaction);
 
             if (beatmapSetId == null)
             {
                 if (request.BeatmapsToKeep.Length != 0)
-                    return new ErrorResponse("Cannot specify beatmaps to keep when creating a new beatmap set.").ToActionResult();
+                    throw new InvariantException("Cannot specify beatmaps to keep when creating a new beatmap set.", LogLevel.Warning);
 
                 if (remainingSlots <= 0)
                 {
-                    return new ErrorResponse($"You have exceeded your submission cap (you are currently allowed {totalSlots} total unranked maps). "
-                                             + $"Please finish the maps you currently have submitted, or wait until your submissions expire automatically to the graveyard "
-                                             + $"(about 4 weeks since last updated).").ToActionResult();
+                    throw new InvariantException($"You have exceeded your submission cap (you are currently allowed {totalSlots} total unranked maps). "
+                                                 + $"Please finish the maps you currently have submitted, or wait until your submissions expire automatically to the graveyard "
+                                                 + $"(about 4 weeks since last updated).");
                 }
 
                 string username = await db.GetUsernameAsync(userId, transaction);
@@ -95,13 +100,20 @@ namespace osu.Server.BeatmapSubmission
                     return NotFound();
 
                 if (beatmapSet.user_id != userId)
+                {
+                    logger.LogWarning("User {submitter} attempted to modify beatmap set {beatmapSetId} of user {owner}", userId, beatmapSetId, beatmapSet.user_id);
                     return Forbid();
+                }
 
                 if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
+                {
+                    logger.LogWarning("User {submitter} attempted to modify ranked beatmap set {beatmapSetId}", userId, beatmapSetId);
                     return Forbid();
+                }
 
                 if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
                 {
+                    logger.LogInformation("Reviving beatmap set {beatmapSetId}", beatmapSetId);
                     await reviveBeatmapSet(db, userId, beatmapSet, request.Target, transaction);
                     beatmapRevived = true;
                 }
@@ -110,28 +122,44 @@ namespace osu.Server.BeatmapSubmission
             }
 
             if (request.BeatmapsToKeep.Except(existingBeatmaps).Any())
-                return new ErrorResponse("One of the beatmaps to keep does not belong to the specified set.").ToActionResult();
+                throw new InvariantException("One of the beatmaps to keep does not belong to the specified set.", LogLevel.Warning);
 
             uint totalBeatmapCount = (uint)request.BeatmapsToKeep.Length + request.BeatmapsToCreate;
+
             if (totalBeatmapCount < 1)
-                return new ErrorResponse("The beatmap set must contain at least one beatmap.").ToActionResult();
+                throw new InvariantException("The beatmap set must contain at least one beatmap.");
+
             if (totalBeatmapCount > 128)
-                return new ErrorResponse("The beatmap set cannot contain more than 128 beatmaps.").ToActionResult();
+                throw new InvariantException("The beatmap set cannot contain more than 128 beatmaps.");
 
             // C# enums suck, so this needs to be explicitly checked to prevent bad actors from doing "funny" stuff.
             if (!Enum.IsDefined(request.Target))
+            {
+                logger.LogWarning("User {submitter} attempted to send malicious parameters to change the ranked status of {beatmapSetId} to illegal value", userId, beatmapSetId);
                 return Forbid();
+            }
 
-            foreach (uint beatmapId in existingBeatmaps.Except(request.BeatmapsToKeep))
-                await db.DeleteBeatmapAsync(beatmapId, transaction);
+            IEnumerable<uint> beatmapsToDelete = existingBeatmaps.Except(request.BeatmapsToKeep).ToArray();
 
-            var beatmapIds = new List<uint>(request.BeatmapsToKeep);
+            if (beatmapsToDelete.Any())
+            {
+                logger.LogInformation("Deleting beatmaps {beatmapIds} in set {beatmapSetId}", beatmapsToDelete, beatmapSetId);
+                foreach (uint beatmapId in beatmapsToDelete)
+                    await db.DeleteBeatmapAsync(beatmapId, transaction);
+            }
+
+            var beatmapIds = new List<uint>();
 
             for (int i = 0; i < request.BeatmapsToCreate; ++i)
             {
                 uint beatmapId = await db.CreateBlankBeatmapAsync(userId, beatmapSetId.Value, transaction);
                 beatmapIds.Add(beatmapId);
             }
+
+            if (beatmapIds.Count > 0)
+                logger.LogInformation("Creating beatmaps {beatmapIds} in set {beatmapSetId}", beatmapIds, beatmapSetId);
+
+            beatmapIds.AddRange(request.BeatmapsToKeep);
 
             await db.SetBeatmapSetOnlineStatusAsync(beatmapSetId.Value, (BeatmapOnlineStatus)request.Target, transaction);
             await db.UpdateBeatmapCountForSet(beatmapSetId.Value, totalBeatmapCount, transaction);
@@ -176,22 +204,26 @@ namespace osu.Server.BeatmapSubmission
 
             using var db = await DatabaseAccess.GetConnectionAsync();
 
-            ErrorResponse? userError = await checkUserAccountStanding(db, userId);
-            if (userError != null)
-                return userError.ToActionResult();
+            await checkUserAccountStanding(db, userId);
 
             var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId);
             if (beatmapSet == null)
                 return NotFound();
 
             if (beatmapSet.user_id != User.GetUserId())
+            {
+                logger.LogWarning("User {submitter} attempted to modify beatmap set {beatmapSetId} of user {owner}", userId, beatmapSetId, beatmapSet.user_id);
                 return Forbid();
+            }
 
             if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
+            {
+                logger.LogWarning("User {submitter} attempted to modify ranked beatmap set {beatmapSetId}", userId, beatmapSetId);
                 return Forbid();
+            }
 
             if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
-                return new ErrorResponse("The beatmap set must be revived first.").ToActionResult();
+                throw new InvariantException("The beatmap set must be revived first.", LogLevel.Warning);
 
             using var beatmapStream = beatmapArchive.OpenReadStream();
 
@@ -207,6 +239,7 @@ namespace osu.Server.BeatmapSubmission
                     await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
             }
 
+            DogStatsd.Increment("submissions_completed", tags: ["full"]);
             return NoContent();
         }
 
@@ -232,34 +265,39 @@ namespace osu.Server.BeatmapSubmission
             uint userId = User.GetUserId();
             using var db = await DatabaseAccess.GetConnectionAsync();
 
-            ErrorResponse? userError = await checkUserAccountStanding(db, userId);
-            if (userError != null)
-                return userError.ToActionResult();
+            await checkUserAccountStanding(db, userId);
 
             var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId);
             if (beatmapSet == null)
                 return NotFound();
 
             if (beatmapSet.user_id != User.GetUserId())
+            {
+                logger.LogWarning("User {submitter} attempted to modify beatmap set {beatmapSetId} of user {owner}", userId, beatmapSetId, beatmapSet.user_id);
                 return Forbid();
+            }
 
             if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
+            {
+                logger.LogWarning("User {submitter} attempted to modify ranked beatmap set {beatmapSetId}", userId, beatmapSetId);
                 return Forbid();
+            }
 
             if (await db.GetLatestBeatmapsetVersionAsync(beatmapSetId) == null)
                 return NotFound();
 
             if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
-                return new ErrorResponse("The beatmap set must be revived first.").ToActionResult();
+                throw new InvariantException("The beatmap set must be revived first.", LogLevel.Warning);
 
             if (filesChanged.Any(f => SanityCheckHelpers.IncursPathTraversalRisk(f.FileName)))
-                return new ErrorResponse("Invalid filename detected").ToActionResult();
+                throw new InvariantException("Invalid filename detected", LogLevel.Warning);
 
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
 
             if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db))
                 await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
 
+            DogStatsd.Increment("submissions_completed", tags: ["update"]);
             return NoContent();
         }
 
@@ -284,9 +322,7 @@ namespace osu.Server.BeatmapSubmission
             uint userId = User.GetUserId();
             using var db = await DatabaseAccess.GetConnectionAsync();
 
-            ErrorResponse? userError = await checkUserAccountStanding(db, userId);
-            if (userError != null)
-                return userError.ToActionResult();
+            await checkUserAccountStanding(db, userId);
 
             var beatmapSet = await db.GetBeatmapSetAsync(beatmapSetId);
             var beatmap = await db.GetBeatmapAsync(beatmapSetId, beatmapId);
@@ -294,38 +330,44 @@ namespace osu.Server.BeatmapSubmission
                 return NotFound();
 
             if (beatmapSet.approved >= BeatmapOnlineStatus.Ranked)
+            {
+                logger.LogWarning("User {submitter} attempted to modify ranked beatmap set {beatmapSetId}", userId, beatmapSetId);
                 return Forbid();
+            }
 
             IEnumerable<uint> beatmapOwners = await db.GetBeatmapOwnersAsync(beatmap.beatmap_id);
+
             if (beatmap.user_id != userId && !beatmapOwners.Contains(userId))
+            {
+                logger.LogWarning("User {submitter} attempted to modify beatmap {beatmapId} in set {beatmapSetId} they are not owner of", userId, beatmapId, beatmapSetId);
                 return Forbid();
+            }
 
             if (await db.GetLatestBeatmapsetVersionAsync(beatmapSetId) == null)
                 return NotFound();
 
             if (beatmapSet.approved == BeatmapOnlineStatus.Graveyard)
-                return new ErrorResponse("The beatmap set is in the graveyard. Please ask the set owner to revive it first.").ToActionResult();
+                throw new InvariantException("The beatmap set is in the graveyard. Please ask the set owner to revive it first.", LogLevel.Warning);
 
             if (SanityCheckHelpers.IncursPathTraversalRisk(beatmapContents.FileName))
-                return new ErrorResponse("Invalid filename detected").ToActionResult();
+                throw new InvariantException("Invalid filename detected", LogLevel.Warning);
 
             var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmap, beatmapContents);
 
             if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db))
                 await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
 
+            DogStatsd.Increment("submissions_completed", tags: ["guest"]);
             return NoContent();
         }
 
-        private static async Task<ErrorResponse?> checkUserAccountStanding(MySqlConnection connection, uint userId, MySqlTransaction? transaction = null)
+        private static async Task checkUserAccountStanding(MySqlConnection connection, uint userId, MySqlTransaction? transaction = null)
         {
             if (await connection.IsUserRestrictedAsync(userId, transaction))
-                return new ErrorResponse("Your account is currently restricted.");
+                throw new InvariantException("Your account is currently restricted.");
 
             if (await connection.IsUserSilencedAsync(userId, transaction))
-                return new ErrorResponse("You are unable to submit or update maps while silenced.");
-
-            return null;
+                throw new InvariantException("You are unable to submit or update maps while silenced.");
         }
 
         private static async Task<(uint totalSlots, uint remainingSlots)> getUploadQuota(MySqlConnection connection, uint userId, MySqlTransaction? transaction = null)
@@ -390,14 +432,14 @@ namespace osu.Server.BeatmapSubmission
                 if (packageFile.BeatmapContent is BeatmapContent content)
                 {
                     if (!beatmapIds.Remove((uint)content.Beatmap.BeatmapInfo.OnlineID))
-                        throw new InvariantException($"Beatmap has invalid ID inside ({packageFile.VersionFile.filename}).");
+                        throw new InvariantException($"Beatmap has invalid ID inside ({packageFile.VersionFile.filename}).", LogLevel.Warning);
 
                     await db.UpdateBeatmapAsync(content.GetDatabaseRow(), transaction);
                 }
             }
 
             if (beatmapIds.Count > 0)
-                throw new InvariantException($"Beatmap package is missing .osu files for beatmaps with IDs: {string.Join(", ", beatmapIds)}");
+                throw new InvariantException($"Beatmap package is missing .osu files for beatmaps with IDs: {string.Join(", ", beatmapIds)}", LogLevel.Warning);
 
             await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
 
