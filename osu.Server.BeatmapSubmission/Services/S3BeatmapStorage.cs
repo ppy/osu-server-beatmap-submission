@@ -165,7 +165,8 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 foreach (var file in files)
                 {
-                    using var response = await client.GetObjectAsync(AppSettings.S3CentralBucketName, getPathToVersionedFile(BitConverter.ToString(file.File.sha2_hash).Replace("-", string.Empty).ToLowerInvariant()));
+                    using var response = await client.GetObjectAsync(AppSettings.S3CentralBucketName,
+                        getPathToVersionedFile(BitConverter.ToString(file.File.sha2_hash).Replace("-", string.Empty).ToLowerInvariant()));
                     zipWriter.Write(file.VersionFile.filename, response.ResponseStream);
                 }
             }
