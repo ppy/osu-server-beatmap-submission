@@ -60,11 +60,11 @@ namespace osu.Server.BeatmapSubmission.Services
                     beatmapFiles.Add((beatmapId, contents));
             }
 
-            await Task.WhenAll([
-                uploadBeatmapPackage(beatmapSetId, beatmapPackage, stream),
-                ..uploadAllVersionedFiles(beatmapSetId, allFiles),
-                ..uploadAllBeatmapFiles(beatmapSetId, beatmapFiles)
-            ]);
+            var tasks = new List<Task> { uploadBeatmapPackage(beatmapSetId, beatmapPackage, stream) };
+            tasks.AddRange(uploadAllVersionedFiles(beatmapSetId, allFiles));
+            tasks.AddRange(uploadAllBeatmapFiles(beatmapSetId, beatmapFiles));
+            await Task.WhenAll(tasks);
+
             logger.LogInformation("All file uploads for beatmapset {beatmapSetId} concluded successfully.", beatmapSetId);
         }
 
