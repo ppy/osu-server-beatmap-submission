@@ -94,9 +94,9 @@ namespace osu.Server.BeatmapSubmission
 
                         return RateLimitPartition.GetSlidingWindowLimiter(userId, _ => new SlidingWindowRateLimiterOptions
                         {
-                            PermitLimit = 30,
+                            PermitLimit = 6,
                             Window = TimeSpan.FromMinutes(1),
-                            SegmentsPerWindow = 6,
+                            SegmentsPerWindow = 3,
                             QueueLimit = 0,
                         });
                     });
