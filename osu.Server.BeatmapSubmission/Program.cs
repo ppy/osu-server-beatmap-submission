@@ -1,5 +1,6 @@
 using System.Net;
 using System.Reflection;
+using System.Threading.RateLimiting;
 using JetBrains.Annotations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,8 @@ namespace osu.Server.BeatmapSubmission
     [UsedImplicitly]
     public class Program
     {
+        public const string RATE_LIMIT_POLICY = "SlidingWindowRateLimiter";
+
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -81,6 +84,24 @@ namespace osu.Server.BeatmapSubmission
                 }
             }
 
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = (int)HttpStatusCode.TooManyRequests;
+                options.AddPolicy(RATE_LIMIT_POLICY,
+                    ctx =>
+                    {
+                        uint userId = ctx.User.GetUserId();
+
+                        return RateLimitPartition.GetSlidingWindowLimiter(userId, _ => new SlidingWindowRateLimiterOptions
+                        {
+                            PermitLimit = 6,
+                            Window = TimeSpan.FromMinutes(1),
+                            SegmentsPerWindow = 3,
+                            QueueLimit = 0,
+                        });
+                    });
+            });
+
             if (AppSettings.SentryDsn != null)
             {
                 builder.Services.AddSingleton<ISentryUserFactory, UserFactory>();
@@ -117,6 +138,7 @@ namespace osu.Server.BeatmapSubmission
 
             app.UseAuthorization();
             app.MapControllers();
+            app.UseRateLimiter();
 
             app.Run();
         }
