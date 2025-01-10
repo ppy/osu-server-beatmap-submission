@@ -39,7 +39,8 @@ Depending on environment, this service changes behaviour with respect to interac
    - Local (filesystem-based) beatmap storage is used.
    - No purge requests to beatmap mirrors are made on beatmap updates.
    - Developer exception pages & API docs are disabled.
-   - Sentry & Datadog integrations are mandatory.
+   - Sentry integration is mandatory.
+   - Datadog integration is optional.
 - `ASPNETCORE_ENVIRONMENT=Production`:
    - S3-based beatmap storage is used.
    - Purge requests to beatmap mirrors are made on beatmap updates.
@@ -62,5 +63,5 @@ Depending on environment, this service changes behaviour with respect to interac
 | `S3_CENTRAL_BUCKET_NAME`     | The name of the S3 bucket to use for storing beatmap packages and versioned files.                                                                 |       ⚠ In production environment       | None          |
 | `S3_BEATMAPS_BUCKET_NAME`    | The name of the S3 bucket to use for storing .osu beatmap files.                                                                                   |       ⚠ In production environment       | None          |
 | `SENTRY_DSN`                 | A valid Sentry DSN to use for logging application events.                                                                                          |  ⚠ In staging & production environment  | None          | 
-| `DD_AGENT_HOST`              | A hostname pointing to a Datadog agent instance to which metrics should be reported.                                                               |  ⚠ In staging & production environment  | None          | 
+| `DD_AGENT_HOST`              | A hostname pointing to a Datadog agent instance to which metrics should be reported.                                                               |       ⚠ In production environment       | None          | 
 

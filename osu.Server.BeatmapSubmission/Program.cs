@@ -73,12 +73,6 @@ namespace osu.Server.BeatmapSubmission
                                                             + "Please set the value of this variable to a valid Sentry DSN to use for logging events.");
                     }
 
-                    if (AppSettings.DatadogAgentHost == null)
-                    {
-                        throw new InvalidOperationException("DD_AGENT_HOST environment variable not set. "
-                                                            + "Please set the value of this variable to a valid hostname of a Datadog agent.");
-                    }
-
                     break;
                 }
 
