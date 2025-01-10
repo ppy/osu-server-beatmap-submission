@@ -60,6 +60,28 @@ namespace osu.Server.BeatmapSubmission
                 }
 
                 case "Staging":
+                {
+                    builder.Services.AddSingleton<IBeatmapStorage, LocalBeatmapStorage>();
+                    builder.Services.AddTransient<BeatmapPackagePatcher>();
+                    builder.Services.AddHttpClient();
+                    builder.Services.AddTransient<ILegacyIO, LegacyIO>();
+                    builder.Services.AddTransient<IMirrorService, NoOpMirrorService>();
+
+                    if (AppSettings.SentryDsn == null)
+                    {
+                        throw new InvalidOperationException("SENTRY_DSN environment variable not set. "
+                                                            + "Please set the value of this variable to a valid Sentry DSN to use for logging events.");
+                    }
+
+                    if (AppSettings.DatadogAgentHost == null)
+                    {
+                        throw new InvalidOperationException("DD_AGENT_HOST environment variable not set. "
+                                                            + "Please set the value of this variable to a valid hostname of a Datadog agent.");
+                    }
+
+                    break;
+                }
+
                 case "Production":
                 {
                     builder.Services.AddSingleton<IBeatmapStorage, S3BeatmapStorage>();
