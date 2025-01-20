@@ -47,11 +47,6 @@ namespace osu.Server.BeatmapSubmission
             {
                 case "Development":
                 {
-                    builder.Services.AddTransient<IBeatmapStorage, LocalBeatmapStorage>();
-                    builder.Services.AddTransient<BeatmapPackagePatcher>();
-                    builder.Services.AddHttpClient();
-                    builder.Services.AddTransient<ILegacyIO, LegacyIO>();
-                    builder.Services.AddTransient<IMirrorService, NoOpMirrorService>();
                     builder.Services.AddSwaggerGen(c =>
                     {
                         c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, Assembly.GetExecutingAssembly().GetName().Name + ".xml"));
@@ -61,12 +56,6 @@ namespace osu.Server.BeatmapSubmission
 
                 case "Staging":
                 {
-                    builder.Services.AddSingleton<IBeatmapStorage, LocalBeatmapStorage>();
-                    builder.Services.AddTransient<BeatmapPackagePatcher>();
-                    builder.Services.AddHttpClient();
-                    builder.Services.AddTransient<ILegacyIO, LegacyIO>();
-                    builder.Services.AddTransient<IMirrorService, NoOpMirrorService>();
-
                     if (AppSettings.SentryDsn == null)
                     {
                         throw new InvalidOperationException("SENTRY_DSN environment variable not set. "
@@ -78,12 +67,6 @@ namespace osu.Server.BeatmapSubmission
 
                 case "Production":
                 {
-                    builder.Services.AddSingleton<IBeatmapStorage, S3BeatmapStorage>();
-                    builder.Services.AddTransient<BeatmapPackagePatcher>();
-                    builder.Services.AddHttpClient();
-                    builder.Services.AddTransient<ILegacyIO, LegacyIO>();
-                    builder.Services.AddTransient<IMirrorService, MirrorService>();
-
                     if (AppSettings.SentryDsn == null)
                     {
                         throw new InvalidOperationException("SENTRY_DSN environment variable not set. "
@@ -99,6 +82,26 @@ namespace osu.Server.BeatmapSubmission
                     break;
                 }
             }
+
+            builder.Services.AddTransient<BeatmapPackagePatcher>();
+            builder.Services.AddHttpClient();
+            builder.Services.AddTransient<ILegacyIO, LegacyIO>();
+
+            switch (AppSettings.StorageType)
+            {
+                case StorageType.Local:
+                    builder.Services.AddTransient<IBeatmapStorage, LocalBeatmapStorage>();
+                    break;
+
+                case StorageType.S3:
+                    builder.Services.AddSingleton<IBeatmapStorage, S3BeatmapStorage>();
+                    break;
+            }
+
+            if (AppSettings.PurgeBeatmapMirrorCaches)
+                builder.Services.AddTransient<IMirrorService, MirrorService>();
+            else
+                builder.Services.AddTransient<IMirrorService, NoOpMirrorService>();
 
             builder.Services.AddRateLimiter(options =>
             {
