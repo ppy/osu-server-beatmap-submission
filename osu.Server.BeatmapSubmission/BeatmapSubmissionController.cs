@@ -8,6 +8,7 @@ using MySqlConnector;
 using osu.Framework.Extensions;
 using osu.Game.Beatmaps;
 using osu.Game.IO.Archives;
+using osu.Game.Rulesets.Objects;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Models;
 using osu.Server.BeatmapSubmission.Models.API.Requests;
@@ -407,6 +408,9 @@ namespace osu.Server.BeatmapSubmission
         {
             using var archiveReader = new ZipArchiveReader(beatmapStream);
             var parseResult = BeatmapPackageParser.Parse(beatmapSetId, archiveReader);
+
+            checkPackageSize(beatmapStream.Length, parseResult);
+
             using var transaction = await db.BeginTransactionAsync();
 
             HashSet<uint> beatmapIds = (await db.GetBeatmapIdsInSetAsync(beatmapSetId, transaction)).ToHashSet();
@@ -466,6 +470,48 @@ namespace osu.Server.BeatmapSubmission
 
             await legacyIO.RefreshBeatmapSetCacheAsync(beatmapSetId);
             return true;
+        }
+
+        private void checkPackageSize(long packageSizeBytes, BeatmapPackageParseResult packageParseResult)
+        {
+            const long minimum_package_size_bytes = 5 * 1024 * 1024; // 5MB
+            const long max_bytes_per_second = 166667; // 10MB / minute
+
+            double longestBeatmapLengthMilliseconds = 0;
+
+            foreach (var file in packageParseResult.Files)
+            {
+                if (file.BeatmapContent is not BeatmapContent content)
+                    continue;
+
+                if (content.Beatmap.HitObjects.Count == 0)
+                    continue;
+
+                longestBeatmapLengthMilliseconds = Math.Max(longestBeatmapLengthMilliseconds, content.Beatmap.HitObjects.Max(ho => ho.GetEndTime()));
+            }
+
+            long allowableSizeBytes = minimum_package_size_bytes + (long)(longestBeatmapLengthMilliseconds / 1000 * max_bytes_per_second);
+
+            if (packageSizeBytes > allowableSizeBytes)
+            {
+                throw new InvariantException($"The beatmap package is too large. "
+                                             + $"The size of the package with the requested changes applied is {humaniseSize(packageSizeBytes)}. "
+                                             + $"The maximum allowable size is {humaniseSize(allowableSizeBytes)}.");
+            }
+
+            static string humaniseSize(double sizeBytes)
+            {
+                string humanisedSize;
+
+                if (sizeBytes < 1024)
+                    humanisedSize = $@"{sizeBytes}B";
+                else if (sizeBytes < 1024 * 1024)
+                    humanisedSize = $@"{sizeBytes / 1024:#.0}kB";
+                else
+                    humanisedSize = $@"{sizeBytes / 1024 / 1024:#.0}MB";
+
+                return humanisedSize;
+            }
         }
 
         /// <summary>
