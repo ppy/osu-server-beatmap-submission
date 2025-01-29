@@ -989,6 +989,40 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestUploadFullPackage_FailsIfSizeTooLarge()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            byte[] data = new byte[50 * 1024 * 1024];
+            new Random(1337).NextBytes(data);
+            var stream = new MemoryStream();
+
+            using (var zipWriter = new ZipWriter(stream, BeatmapPackagePatcher.DEFAULT_ZIP_WRITER_OPTIONS))
+            {
+                zipWriter.Write("garbage.png", new MemoryStream(data));
+                using var osuFileStream = TestResources.GetResource(osu_filename)!;
+                zipWriter.Write("test.osu", osuFileStream);
+            }
+
+            content.Add(new StreamContent(stream), "beatmapArchive", osz_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Contains("The beatmap package is too large.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        }
+
+        [Fact]
         public async Task TestPatchPackage()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
@@ -1335,6 +1369,36 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
+        }
+
+        [Fact]
+        public async Task TestPatchPackage_FailsIfSizeTooLarge()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            byte[] data = new byte[50 * 1024 * 1024];
+            new Random(1337).NextBytes(data);
+            content.Add(new ByteArrayContent(data), "filesChanged", "some_large_file.mp4");
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Contains("The beatmap package is too large.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]
@@ -1728,6 +1792,42 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
+        }
+
+        [Fact]
+        public async Task TestSubmitGuestDifficulty_FailsIfFileTooLarge()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 1000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `beatmap_owners` (`user_id`, `beatmap_id`) VALUES (2000, 557810)");
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526/beatmaps/557810");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var osuFileStream = TestResources.GetResource(osu_filename)!;
+            byte[] osuFileContents = await osuFileStream.ReadAllBytesToArrayAsync();
+            byte[] data = new byte[50 * 1024 * 1024];
+            new Random(1337).NextBytes(data);
+            byte[] fillerBytes = Encoding.UTF8.GetBytes("\n// " + string.Join(string.Empty, data.Select(b => b.ToString("X2"))));
+            content.Add(new ByteArrayContent(osuFileContents.Concat(fillerBytes).ToArray()), "beatmapContents", osu_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Contains("The beatmap package is too large.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         public override void Dispose()
