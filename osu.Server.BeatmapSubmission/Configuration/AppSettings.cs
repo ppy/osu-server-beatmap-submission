@@ -15,11 +15,11 @@ namespace osu.Server.BeatmapSubmission.Configuration
         {
             get
             {
-                string? value = Environment.GetEnvironmentVariable("STORAGE_TYPE");
+                string? value = Environment.GetEnvironmentVariable("BEATMAP_STORAGE_TYPE");
 
                 if (!Enum.TryParse(value, true, out StorageType storageType) || !Enum.IsDefined(storageType))
                 {
-                    throw new InvalidOperationException($"STORAGE_TYPE environment variable not set to a valid value (`{value}`). "
+                    throw new InvalidOperationException($"BEATMAP_STORAGE_TYPE environment variable not set to a valid value (`{value}`). "
                                                         + "The variable is used to choose the implementation of beatmap storage used. "
                                                         + "Valid values are:\n"
                                                         + "- `local` (requires setting `LOCAL_BEATMAP_STORAGE_PATH`),\n"
