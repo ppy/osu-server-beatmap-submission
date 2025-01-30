@@ -11,20 +11,14 @@ namespace osu.Server.BeatmapSubmission.Configuration
                                                    + "The variable is used to authenticate clients using JWTs issued by osu-web. "
                                                    + "Please set the value of this variable to the client ID assigned to osu! in the osu-web target deploy.");
 
-        public static StorageType StorageType
+        public static StorageType? StorageType
         {
             get
             {
                 string? value = Environment.GetEnvironmentVariable("BEATMAP_STORAGE_TYPE");
 
                 if (!Enum.TryParse(value, true, out StorageType storageType) || !Enum.IsDefined(storageType))
-                {
-                    throw new InvalidOperationException($"BEATMAP_STORAGE_TYPE environment variable not set to a valid value (`{value}`). "
-                                                        + "The variable is used to choose the implementation of beatmap storage used. "
-                                                        + "Valid values are:\n"
-                                                        + "- `local` (requires setting `LOCAL_BEATMAP_STORAGE_PATH`),\n"
-                                                        + "- `s3` (requires setting `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_CENTRAL_BUCKET_NAME`, `S3_BEATMAPS_BUCKET_NAME`)");
-                }
+                    return null;
 
                 return storageType;
             }

@@ -17,6 +17,8 @@ namespace osu.Server.BeatmapSubmission
     {
         public const string RATE_LIMIT_POLICY = "SlidingWindowRateLimiter";
 
+        public const string INTEGRATION_TEST_ENVIRONMENT = "IntegrationTest";
+
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -96,6 +98,18 @@ namespace osu.Server.BeatmapSubmission
                 case StorageType.S3:
                     builder.Services.AddSingleton<IBeatmapStorage, S3BeatmapStorage>();
                     break;
+
+                default:
+                {
+                    if (builder.Environment.EnvironmentName == INTEGRATION_TEST_ENVIRONMENT)
+                        break;
+
+                    throw new InvalidOperationException($"BEATMAP_STORAGE_TYPE environment variable not set to a valid value (`{AppSettings.StorageType}`). "
+                                                        + "The variable is used to choose the implementation of beatmap storage used. "
+                                                        + "Valid values are:\n"
+                                                        + "- `local` (requires setting `LOCAL_BEATMAP_STORAGE_PATH`),\n"
+                                                        + "- `s3` (requires setting `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_CENTRAL_BUCKET_NAME`, `S3_BEATMAPS_BUCKET_NAME`)");
+                }
             }
 
             if (AppSettings.PurgeBeatmapMirrorCaches)
