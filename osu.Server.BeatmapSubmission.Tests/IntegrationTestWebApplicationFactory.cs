@@ -20,7 +20,7 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             // this is a non-standard environment string (usually it's one of "Development", "Staging", or "Production").
             // this is primarily done such that integration tests that use this factory have full control over dependency injection.
-            builder.UseEnvironment("IntegrationTest");
+            builder.UseEnvironment(Program.INTEGRATION_TEST_ENVIRONMENT);
             builder.ConfigureTestServices(services =>
             {
                 // use the `HeaderBasedAuthenticationHandler` so that users can be easily impersonated for testing needs.

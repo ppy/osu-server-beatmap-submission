@@ -17,6 +17,8 @@ namespace osu.Server.BeatmapSubmission
     {
         public const string RATE_LIMIT_POLICY = "SlidingWindowRateLimiter";
 
+        public const string INTEGRATION_TEST_ENVIRONMENT = "IntegrationTest";
+
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -47,11 +49,6 @@ namespace osu.Server.BeatmapSubmission
             {
                 case "Development":
                 {
-                    builder.Services.AddTransient<IBeatmapStorage, LocalBeatmapStorage>();
-                    builder.Services.AddTransient<BeatmapPackagePatcher>();
-                    builder.Services.AddHttpClient();
-                    builder.Services.AddTransient<ILegacyIO, LegacyIO>();
-                    builder.Services.AddTransient<IMirrorService, NoOpMirrorService>();
                     builder.Services.AddSwaggerGen(c =>
                     {
                         c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, Assembly.GetExecutingAssembly().GetName().Name + ".xml"));
@@ -60,14 +57,18 @@ namespace osu.Server.BeatmapSubmission
                 }
 
                 case "Staging":
+                {
+                    if (AppSettings.SentryDsn == null)
+                    {
+                        throw new InvalidOperationException("SENTRY_DSN environment variable not set. "
+                                                            + "Please set the value of this variable to a valid Sentry DSN to use for logging events.");
+                    }
+
+                    break;
+                }
+
                 case "Production":
                 {
-                    builder.Services.AddSingleton<IBeatmapStorage, S3BeatmapStorage>();
-                    builder.Services.AddTransient<BeatmapPackagePatcher>();
-                    builder.Services.AddHttpClient();
-                    builder.Services.AddTransient<ILegacyIO, LegacyIO>();
-                    builder.Services.AddTransient<IMirrorService, MirrorService>();
-
                     if (AppSettings.SentryDsn == null)
                     {
                         throw new InvalidOperationException("SENTRY_DSN environment variable not set. "
@@ -83,6 +84,38 @@ namespace osu.Server.BeatmapSubmission
                     break;
                 }
             }
+
+            builder.Services.AddTransient<BeatmapPackagePatcher>();
+            builder.Services.AddHttpClient();
+            builder.Services.AddTransient<ILegacyIO, LegacyIO>();
+
+            switch (AppSettings.StorageType)
+            {
+                case StorageType.Local:
+                    builder.Services.AddTransient<IBeatmapStorage, LocalBeatmapStorage>();
+                    break;
+
+                case StorageType.S3:
+                    builder.Services.AddSingleton<IBeatmapStorage, S3BeatmapStorage>();
+                    break;
+
+                default:
+                {
+                    if (builder.Environment.EnvironmentName == INTEGRATION_TEST_ENVIRONMENT)
+                        break;
+
+                    throw new InvalidOperationException($"BEATMAP_STORAGE_TYPE environment variable not set to a valid value (`{AppSettings.StorageType}`). "
+                                                        + "The variable is used to choose the implementation of beatmap storage used. "
+                                                        + "Valid values are:\n"
+                                                        + "- `local` (requires setting `LOCAL_BEATMAP_STORAGE_PATH`),\n"
+                                                        + "- `s3` (requires setting `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_CENTRAL_BUCKET_NAME`, `S3_BEATMAPS_BUCKET_NAME`)");
+                }
+            }
+
+            if (AppSettings.PurgeBeatmapMirrorCaches)
+                builder.Services.AddTransient<IMirrorService, MirrorService>();
+            else
+                builder.Services.AddTransient<IMirrorService, NoOpMirrorService>();
 
             builder.Services.AddRateLimiter(options =>
             {
