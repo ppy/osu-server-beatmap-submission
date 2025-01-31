@@ -48,7 +48,7 @@ jobs:
         name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./osu.Server.BeatmapSubmission
+          context: .
           file: ./osu.Server.BeatmapSubmission/Dockerfile
           platforms: linux/amd64
           push: true
