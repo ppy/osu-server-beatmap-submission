@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Threading.RateLimiting;
 using JetBrains.Annotations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.Extensions.Options;
 using osu.Server.BeatmapSubmission.Authentication;
 using osu.Server.BeatmapSubmission.Configuration;
@@ -29,7 +30,10 @@ namespace osu.Server.BeatmapSubmission
             {
                 options.Filters.Add<InvariantExceptionFilter>();
             });
-            builder.Services.AddHttpLogging(_ => { });
+            builder.Services.AddHttpLogging(logging =>
+            {
+                logging.LoggingFields = HttpLoggingFields.All;
+            });
             builder.Services.AddLogging(logging =>
             {
                 logging.ClearProviders();
