@@ -29,6 +29,7 @@ namespace osu.Server.BeatmapSubmission
             {
                 options.Filters.Add<InvariantExceptionFilter>();
             });
+            builder.Services.AddHttpLogging(_ => { });
             builder.Services.AddLogging(logging =>
             {
                 logging.ClearProviders();
@@ -171,6 +172,7 @@ namespace osu.Server.BeatmapSubmission
 
             app.UseAuthorization();
             app.MapControllers();
+            app.UseHttpLogging();
             app.UseRateLimiter();
 
             app.Run();
