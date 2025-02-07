@@ -689,6 +689,46 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestPutBeatmapSet_DoNotPurgeSetImmediatelyAfterCreatingIt()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
+
+            var createRequest = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            createRequest.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapsToCreate = 1,
+                Target = BeatmapSubmissionTarget.Pending,
+            });
+            createRequest.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2");
+
+            var createResponse = await Client.SendAsync(createRequest);
+            Assert.True(createResponse.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmapsets`", 1, CancellationToken);
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps`", 1, CancellationToken);
+
+            var createResponseContent = await createResponse.Content.ReadFromJsonAsync<PutBeatmapSetResponse>();
+            Assert.NotNull(createResponseContent);
+
+            var updateRequest = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
+            updateRequest.Content = JsonContent.Create(new PutBeatmapSetRequest
+            {
+                BeatmapSetID = createResponseContent.BeatmapSetId,
+                BeatmapsToKeep = createResponseContent.BeatmapIds.ToArray(),
+                Target = BeatmapSubmissionTarget.Pending,
+            });
+            updateRequest.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2");
+
+            var updateResponse = await Client.SendAsync(updateRequest);
+            Assert.True(updateResponse.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmapsets`", 1, CancellationToken);
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmaps`", 1, CancellationToken);
+        }
+
+        [Fact]
         public async Task TestUploadFullPackage_DoesNothingIfPreviousVersionIsTheSame()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();

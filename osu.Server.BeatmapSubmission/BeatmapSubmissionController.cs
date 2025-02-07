@@ -74,7 +74,7 @@ namespace osu.Server.BeatmapSubmission
 
             using var transaction = await db.BeginTransactionAsync();
 
-            uint[] purgedMaps = await db.PurgeInactiveBeatmapSetsForUserAsync(userId, transaction);
+            uint[] purgedMaps = await db.PurgeInactiveBeatmapSetsForUserAsync(userId, excludedSetIds: beatmapSetId == null ? [] : [beatmapSetId.Value], transaction);
             if (purgedMaps.Length > 0)
                 logger.LogInformation("Purging inactive beatmap sets for user {userId} (ids: {purgedMaps})", userId, purgedMaps);
 

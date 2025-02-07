@@ -65,29 +65,32 @@ namespace osu.Server.BeatmapSubmission
                 transaction) ?? 0;
         }
 
-        public static async Task<uint[]> PurgeInactiveBeatmapSetsForUserAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
+        public static async Task<uint[]> PurgeInactiveBeatmapSetsForUserAsync(this MySqlConnection db, uint userId, uint[] excludedSetIds, MySqlTransaction? transaction = null)
         {
-            uint[] beatmapSetIds = (await db.QueryAsync<uint>(@"SELECT `beatmapset_id` FROM `osu_beatmapsets` WHERE `user_id` = @user_id AND `active` = -1 AND `deleted_at` IS NULL",
+            HashSet<uint> beatmapSetIds = (await db.QueryAsync<uint>(@"SELECT `beatmapset_id` FROM `osu_beatmapsets` WHERE `user_id` = @user_id AND `active` = -1 AND `deleted_at` IS NULL",
                 new
                 {
                     user_id = userId,
                 },
-                transaction)).ToArray();
+                transaction)).ToHashSet();
 
-            await db.ExecuteAsync(@"DELETE FROM `osu_beatmaps` WHERE `beatmapset_id` IN @beatmapset_ids AND `user_id` = @user_id AND `deleted_at` IS NULL",
+            beatmapSetIds.ExceptWith(excludedSetIds);
+
+            await db.ExecuteAsync(@"DELETE FROM `osu_beatmaps` WHERE `beatmapset_id` IN @beatmapset_ids AND `user_id` = @user_id",
                 new
                 {
                     beatmapset_ids = beatmapSetIds,
                     user_id = userId,
                 }, transaction);
-            await db.ExecuteAsync(@"DELETE FROM `osu_beatmapsets` WHERE `user_id` = @user_id AND `active` = -1",
+            await db.ExecuteAsync(@"DELETE FROM `osu_beatmapsets` WHERE `beatmapset_id` IN @beatmapset_ids AND `user_id` = @user_id",
                 new
                 {
+                    beatmapset_ids = beatmapSetIds,
                     user_id = userId,
                 },
                 transaction);
 
-            return beatmapSetIds;
+            return beatmapSetIds.ToArray();
         }
 
         public static Task<(uint unranked, uint ranked)> GetUserBeatmapSetCountAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
