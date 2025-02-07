@@ -29,6 +29,7 @@ namespace osu.Server.BeatmapSubmission
             builder.Services.AddControllers(options =>
             {
                 options.Filters.Add<InvariantExceptionFilter>();
+                options.Filters.Add<ModelStateValidationFilter>();
             });
             builder.Services.AddHttpLogging(logging =>
             {
