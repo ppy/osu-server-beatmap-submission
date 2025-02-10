@@ -64,6 +64,30 @@ namespace osu.Server.BeatmapSubmission.Configuration
         public static string? SentryDsn => Environment.GetEnvironmentVariable("SENTRY_DSN");
 
         public static string? DatadogAgentHost => Environment.GetEnvironmentVariable("DD_AGENT_HOST");
+
+        public static uint[]? UserAllowList
+        {
+            get
+            {
+                string? rawString = Environment.GetEnvironmentVariable("USER_ALLOW_LIST");
+
+                if (string.IsNullOrEmpty(rawString))
+                    return null;
+
+                string[] split = rawString.Split(',');
+                var result = new HashSet<uint>();
+
+                foreach (string fragment in split)
+                {
+                    if (!uint.TryParse(fragment, out uint userId))
+                        throw new InvalidOperationException("USER_ALLOW_LIST should be a comma-separated list of user IDs who are allowed to use the service.");
+
+                    result.Add(userId);
+                }
+
+                return result.ToArray();
+            }
+        }
     }
 
     public enum StorageType
