@@ -235,7 +235,7 @@ namespace osu.Server.BeatmapSubmission
             // but do a check which matches stable to make sure that it is the case.
             bool newSubmission = beatmapSet.bpm == 0;
 
-            if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db))
+            if (await updateBeatmapSetFromArchiveAsync(beatmapSet, beatmapStream, db))
             {
                 if (newSubmission)
                     await legacyIO.BroadcastNewBeatmapSetEventAsync(beatmapSetId);
@@ -299,7 +299,7 @@ namespace osu.Server.BeatmapSubmission
 
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
 
-            if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, beatmapStream, db))
+            if (await updateBeatmapSetFromArchiveAsync(beatmapSet, beatmapStream, db))
                 await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
 
             DogStatsd.Increment("submissions_completed", tags: ["update"]);
@@ -360,7 +360,7 @@ namespace osu.Server.BeatmapSubmission
 
             var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmap, beatmapContents);
 
-            if (await updateBeatmapSetFromArchiveAsync(beatmapSetId, archiveStream, db))
+            if (await updateBeatmapSetFromArchiveAsync(beatmapSet, archiveStream, db))
                 await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
 
             DogStatsd.Increment("submissions_completed", tags: ["guest"]);
@@ -404,18 +404,19 @@ namespace osu.Server.BeatmapSubmission
         /// <see langword="true"/> if any change was actually performed.
         /// <see langword="false"/> if the supplied package is functionally equivalent to the previous version and as such there is nothing to be done.
         /// </returns>
-        private async Task<bool> updateBeatmapSetFromArchiveAsync(uint beatmapSetId, Stream beatmapStream, MySqlConnection db)
+        private async Task<bool> updateBeatmapSetFromArchiveAsync(osu_beatmapset beatmapSet, Stream beatmapStream, MySqlConnection db)
         {
             using var archiveReader = new ZipArchiveReader(beatmapStream);
-            var parseResult = BeatmapPackageParser.Parse(beatmapSetId, archiveReader);
+            var parser = new BeatmapPackageParser(await db.GetUsernameAsync(beatmapSet.user_id));
+            var parseResult = parser.Parse(beatmapSet.beatmapset_id, archiveReader);
 
             checkPackageSize(beatmapStream.Length, parseResult);
 
             using var transaction = await db.BeginTransactionAsync();
 
-            HashSet<uint> beatmapIds = (await db.GetBeatmapIdsInSetAsync(beatmapSetId, transaction)).ToHashSet();
+            HashSet<uint> beatmapIds = (await db.GetBeatmapIdsInSetAsync(beatmapSet.beatmapset_id, transaction)).ToHashSet();
 
-            (beatmapset_version, PackageFile[] files)? lastVersion = await db.GetLatestBeatmapsetVersionAsync(beatmapSetId, transaction);
+            (beatmapset_version, PackageFile[] files)? lastVersion = await db.GetLatestBeatmapsetVersionAsync(beatmapSet.beatmapset_id, transaction);
 
             if (lastVersion != null)
             {
@@ -431,7 +432,7 @@ namespace osu.Server.BeatmapSubmission
             foreach (var versionedFile in parseResult.Files)
                 versionedFile.VersionFile.file_id = await db.InsertBeatmapsetFileAsync(versionedFile.File, transaction);
 
-            ulong versionId = await db.CreateBeatmapsetVersionAsync(beatmapSetId, transaction);
+            ulong versionId = await db.CreateBeatmapsetVersionAsync(beatmapSet.beatmapset_id, transaction);
 
             foreach (var packageFile in parseResult.Files)
             {
@@ -455,20 +456,20 @@ namespace osu.Server.BeatmapSubmission
             await transaction.CommitAsync();
 
             // TODO: the ACID implications on this happening post-commit are... interesting... not sure anything can be done better?
-            await beatmapStorage.StoreBeatmapSetAsync(beatmapSetId, await beatmapStream.ReadAllBytesToArrayAsync(), parseResult);
+            await beatmapStorage.StoreBeatmapSetAsync(beatmapSet.beatmapset_id, await beatmapStream.ReadAllBytesToArrayAsync(), parseResult);
 
-            if (await db.IsBeatmapSetNominatedAsync(beatmapSetId))
-                await legacyIO.DisqualifyBeatmapSetAsync(beatmapSetId, "This beatmap set was updated by the mapper after a nomination. Please ensure to re-check the beatmaps for new issues. If you are the mapper, please comment in this thread on what you changed.");
+            if (await db.IsBeatmapSetNominatedAsync(beatmapSet.beatmapset_id))
+                await legacyIO.DisqualifyBeatmapSetAsync(beatmapSet.beatmapset_id, "This beatmap set was updated by the mapper after a nomination. Please ensure to re-check the beatmaps for new issues. If you are the mapper, please comment in this thread on what you changed.");
 
-            await mirrorService.PurgeBeatmapSetAsync(db, beatmapSetId);
+            await mirrorService.PurgeBeatmapSetAsync(db, beatmapSet.beatmapset_id);
 
-            if (!await db.IsBeatmapSetInProcessingQueueAsync(beatmapSetId))
+            if (!await db.IsBeatmapSetInProcessingQueueAsync(beatmapSet.beatmapset_id))
             {
-                await db.AddBeatmapSetToProcessingQueueAsync(beatmapSetId);
-                await legacyIO.IndexBeatmapSetAsync(beatmapSetId);
+                await db.AddBeatmapSetToProcessingQueueAsync(beatmapSet.beatmapset_id);
+                await legacyIO.IndexBeatmapSetAsync(beatmapSet.beatmapset_id);
             }
 
-            await legacyIO.RefreshBeatmapSetCacheAsync(beatmapSetId);
+            await legacyIO.RefreshBeatmapSetCacheAsync(beatmapSet.beatmapset_id);
             return true;
         }
 

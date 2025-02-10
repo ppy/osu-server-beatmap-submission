@@ -16,11 +16,18 @@ using osu.Server.BeatmapSubmission.Models.Database;
 
 namespace osu.Server.BeatmapSubmission.Services
 {
-    public static class BeatmapPackageParser
+    public class BeatmapPackageParser
     {
         public static readonly HashSet<string> VALID_EXTENSIONS = new HashSet<string>([..SupportedExtensions.ALL_EXTENSIONS, @".osu", @".osb"], StringComparer.OrdinalIgnoreCase);
 
-        public static BeatmapPackageParseResult Parse(uint beatmapSetId, ArchiveReader archiveReader)
+        private readonly string expectedCreator;
+
+        public BeatmapPackageParser(string expectedCreator)
+        {
+            this.expectedCreator = expectedCreator;
+        }
+
+        public BeatmapPackageParseResult Parse(uint beatmapSetId, ArchiveReader archiveReader)
         {
             string[] filenames = archiveReader.Filenames.ToArray();
 
@@ -74,7 +81,7 @@ namespace osu.Server.BeatmapSubmission.Services
             return new BeatmapContent(Path.GetFileName(filePath), contents.ComputeMD5Hash(), beatmap);
         }
 
-        private static osu_beatmapset constructDatabaseRowForBeatmapset(uint beatmapSetId, ArchiveReader archiveReader, ICollection<BeatmapContent> beatmaps)
+        private osu_beatmapset constructDatabaseRowForBeatmapset(uint beatmapSetId, ArchiveReader archiveReader, ICollection<BeatmapContent> beatmaps)
         {
             if (beatmaps.Count == 0)
                 throw new InvariantException("The uploaded beatmap set must have at least one difficulty.");
@@ -97,6 +104,10 @@ namespace osu.Server.BeatmapSubmission.Services
                 bpm = firstBeatLength > 0 ? 60000 / firstBeatLength : 0,
                 filename = PackageFilenameFor(beatmapSetId),
             };
+
+            string creator = getSingleValueFrom(beatmaps, c => c.Beatmap.Metadata.Author.Username, "Creator");
+            if (creator != expectedCreator)
+                throw new InvariantException("At least one difficulty has a specified creator that isn't the beatmap host's username.");
 
             // TODO: maybe unnecessary?
             result.displaytitle = $"[bold:0,size:20]{result.artist_unicode}|{result.title_unicode}";
