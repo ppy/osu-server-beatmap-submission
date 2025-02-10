@@ -27,7 +27,7 @@ namespace osu.Server.BeatmapSubmission.Tests
     public class BeatmapSubmissionControllerTest : IntegrationTest
     {
         private const string osz_filename = "241526 Soleily - Renatus.osz";
-        private const string osu_filename = "Soleily - Renatus (Deif) [Platter 2].osu";
+        private const string osu_filename = "Soleily - Renatus (test) [Platter 2].osu";
 
         protected new HttpClient Client { get; }
 
@@ -57,7 +57,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_NewSet(BeatmapSubmissionTarget status)
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
@@ -90,7 +90,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_RestrictedUserCannotSubmit()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `user_warnings`) VALUES (2, 'test', 'JP', '', '', '', '', 1)");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `user_warnings`) VALUES (2, 'test', 'test', 'JP', '', '', '', '', 1)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
             request.Content = JsonContent.Create(new PutBeatmapSetRequest { BeatmapsToCreate = 15 });
@@ -106,7 +106,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_SilencedUserCannotSubmit()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync(
                 """
                    INSERT INTO `osu_user_banhistory` (`user_id`, `ban_status`, `period`, `timestamp`)
@@ -129,7 +129,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_UserWithTooLowPlaycountCannotSubmit()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 3)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
@@ -146,7 +146,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_SilencedUserCanSubmitAfterSilenceExpires()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
             await db.ExecuteAsync("INSERT INTO `osu_user_banhistory` (`user_id`, `ban_status`, `period`, `timestamp`) VALUES (2, 2, 86400, TIMESTAMPADD(DAY, -1, CURRENT_TIMESTAMP()))");
 
@@ -164,7 +164,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_NewSet_CannotSpecifyBeatmapsToKeep()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
@@ -185,7 +185,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_NewSet_CannotExceedMaxBeatmapLimit()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
@@ -205,7 +205,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_NewSet_BeatmapSetQuotaExceeded()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             for (int i = 0; i < 4; ++i)
@@ -225,7 +225,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_NewSet_InactiveBeatmapsArePurged()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             for (int i = 0; i < 4; ++i)
@@ -246,7 +246,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
@@ -282,7 +282,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
             await db.ExecuteAsync(
-                "INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+                "INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(
@@ -313,7 +313,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
             await db.ExecuteAsync(
-                "INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+                "INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(
@@ -342,7 +342,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet_CannotModifyDeletedSet()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`, `deleted_at`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP, NOW())");
@@ -368,7 +368,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet_CannotModifyIfNotOwner()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
@@ -394,7 +394,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet_CannotModifyIfRanked()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', 1, 0, 1, CURRENT_TIMESTAMP)");
@@ -420,7 +420,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet_CannotKeepBeatmapsThatWereNotPartOfTheSet()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
@@ -447,7 +447,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet_CannotDeleteAllBeatmaps()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
@@ -472,7 +472,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet_CannotExceedMaxBeatmapLimit()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
@@ -499,7 +499,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet_BeatmapSetQuotaExceeded()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `osu_subscriber`) VALUES (1000, 'test', 'JP', '', '', '', '', 1)");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `osu_subscriber`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '', 1)");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             for (int i = 0; i < 9; ++i)
@@ -535,7 +535,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_NonexistentSet()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
@@ -557,7 +557,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet_BeatmapRevivedFromGraveyard(BeatmapSubmissionTarget status)
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `osu_subscriber`) VALUES (1000, 'test', 'JP', '', '', '', '', 1)");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `osu_subscriber`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '', 1)");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync("INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 1000, 'test user', -2, 0, 1, CURRENT_TIMESTAMP)");
@@ -589,7 +589,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_ExistingSet_RevivalFailsDueToDownloadDisabled(BeatmapSubmissionTarget status)
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `osu_subscriber`) VALUES (1000, 'test', 'JP', '', '', '', '', 1)");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`, `osu_subscriber`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '', 1)");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (1000, '2411', 5)");
 
             await db.ExecuteAsync("INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`, `download_disabled`) VALUES (1000, 1000, 'test user', -2, 0, 1, CURRENT_TIMESTAMP, 1)");
@@ -617,7 +617,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -653,8 +653,8 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var osuBeatmap = await db.QuerySingleAsync<osu_beatmap>(@"SELECT * FROM `osu_beatmaps` WHERE `beatmap_id` = 557814");
 
-            Assert.Equal("Soleily - Renatus (Gamu) [Hard].osu", osuBeatmap.filename);
-            Assert.Equal("cb52bcebcc680909f0c81257e2222540", osuBeatmap.checksum);
+            Assert.Equal("Soleily - Renatus (test) [Hard].osu", osuBeatmap.filename);
+            Assert.Equal("30ae41c14d211ea5cdc128e347573a9a", osuBeatmap.checksum);
             Assert.Equal("Hard", osuBeatmap.version);
             Assert.Equal(208u, osuBeatmap.total_length); // off by 1 compared to osu-web, but doesn't seem worth investigating
             Assert.Equal(190u, osuBeatmap.hit_length); // off by 1 compared to osu-web, but doesn't seem worth investigating
@@ -670,8 +670,8 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var maniaBeatmap = await db.QuerySingleAsync<osu_beatmap>(@"SELECT * FROM `osu_beatmaps` WHERE `beatmap_id` = 557813");
 
-            Assert.Equal("Soleily - Renatus (ExPew) [Hyper].osu", maniaBeatmap.filename);
-            Assert.Equal("e883a693629c22034f682667b21fa695", maniaBeatmap.checksum);
+            Assert.Equal("Soleily - Renatus (test) [Hyper].osu", maniaBeatmap.filename);
+            Assert.Equal("3c4ac5fe3ed0abe7ee9eb000d4d06ebc", maniaBeatmap.checksum);
             Assert.Equal("Hyper", maniaBeatmap.version);
             Assert.Equal(226u, maniaBeatmap.total_length); // off by 2 compared to osu-web, but doesn't seem worth investigating
             Assert.Equal(226u, maniaBeatmap.hit_length); // off by 1 compared to osu-web, but doesn't seem worth investigating
@@ -692,7 +692,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPutBeatmapSet_DoNotPurgeSetImmediatelyAfterCreatingIt()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2, 'test', 'test', 'JP', '', '', '', '')");
             await db.ExecuteAsync("INSERT INTO `osu_user_month_playcount` (`user_id`, `year_month`, `playcount`) VALUES (2, '2411', 5)");
 
             var createRequest = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets");
@@ -732,7 +732,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_DoesNothingIfPreviousVersionIsTheSame()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -776,7 +776,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_DeletedBeatmapsDoNotInterfere()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -803,7 +803,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_FailsIfBeatmapDeleted()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`, `deleted_at`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP, NOW())");
 
@@ -827,7 +827,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_FailsIfBeatmapRanked()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', 1, 0, 1, CURRENT_TIMESTAMP)");
 
@@ -857,7 +857,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_FailsOnGraveyardedBeatmaps()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             for (int i = 0; i < 4; ++i)
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
@@ -885,7 +885,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_FailsOnEmptyPackage()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -915,7 +915,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_FailsOnPackageWithSuspiciousFile()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -944,7 +944,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_FailsIfBeatmapsDoNotHaveCorrectSetIDsInside()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (999999, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -969,7 +969,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_FailsIfBeatmapsDoNotHaveCorrectIDsInside()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -998,7 +998,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_PathTraversalAttackFails(string suspiciousFilename)
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1032,7 +1032,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_FailsIfSizeTooLarge()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1066,7 +1066,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1083,7 +1083,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
             using var osuFileStream = TestResources.GetResource(osu_filename)!;
             content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
-            content.Add(new StringContent("Soleily - Renatus (Deif) [Platter].osu"), "filesDeleted");
+            content.Add(new StringContent("Soleily - Renatus (test) [Platter].osu"), "filesDeleted");
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
@@ -1102,7 +1102,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_AddStoryboard()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1140,7 +1140,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_NominationsReset()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1159,7 +1159,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
             using var osuFileStream = TestResources.GetResource(osu_filename)!;
             content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
-            content.Add(new StringContent("Soleily - Renatus (Deif) [Platter].osu"), "filesDeleted");
+            content.Add(new StringContent("Soleily - Renatus (test) [Platter].osu"), "filesDeleted");
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
@@ -1174,7 +1174,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_FailsIfThereWasNoPriorUpload()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1198,7 +1198,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_FailsIfBeatmapDeleted()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`, `deleted_at`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP, NOW())");
 
@@ -1215,7 +1215,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
             using var osuFileStream = TestResources.GetResource(osu_filename)!;
             content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
-            content.Add(new StringContent("Soleily - Renatus (Deif) [Platter].osu"), "filesDeleted");
+            content.Add(new StringContent("Soleily - Renatus (test) [Platter].osu"), "filesDeleted");
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
@@ -1228,7 +1228,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_FailsIfBeatmapRanked()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', 1, 0, 1, CURRENT_TIMESTAMP)");
 
@@ -1245,7 +1245,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
             using var osuFileStream = TestResources.GetResource(osu_filename)!;
             content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
-            content.Add(new StringContent("Soleily - Renatus (Deif) [Platter].osu"), "filesDeleted");
+            content.Add(new StringContent("Soleily - Renatus (test) [Platter].osu"), "filesDeleted");
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
@@ -1258,7 +1258,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_FailsOnGraveyardedBeatmaps()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             for (int i = 0; i < 4; ++i)
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (1000, 'test user', -1, 0, 1, CURRENT_TIMESTAMP)");
@@ -1278,7 +1278,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
             using var osuFileStream = TestResources.GetResource(osu_filename)!;
             content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
-            content.Add(new StringContent("Soleily - Renatus (Deif) [Platter].osu"), "filesDeleted");
+            content.Add(new StringContent("Soleily - Renatus (test) [Platter].osu"), "filesDeleted");
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
@@ -1292,7 +1292,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_FailsOnSuspiciousFileTypes()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1322,7 +1322,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_FailsIfBeatmapDoesNotHaveCorrectSetIDInside()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (999999, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1339,7 +1339,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
             using var osuFileStream = TestResources.GetResource(osu_filename)!;
             content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
-            content.Add(new StringContent("Soleily - Renatus (Deif) [Platter].osu"), "filesDeleted");
+            content.Add(new StringContent("Soleily - Renatus (test) [Platter].osu"), "filesDeleted");
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
@@ -1353,7 +1353,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_FailsIfBeatmapDoesNotHaveCorrectIDInside()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1370,7 +1370,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
             using var osuFileStream = TestResources.GetResource(osu_filename)!;
             content.Add(new StreamContent(osuFileStream), "filesChanged", osu_filename);
-            content.Add(new StringContent("Soleily - Renatus (Deif) [Platter].osu"), "filesDeleted");
+            content.Add(new StringContent("Soleily - Renatus (test) [Platter].osu"), "filesDeleted");
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
 
@@ -1388,7 +1388,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_PathTraversalFails(string suspiciousPath)
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1415,7 +1415,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestPatchPackage_FailsIfSizeTooLarge()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
@@ -1445,14 +1445,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_OldStyle()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (test) [Platter].osu')");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
@@ -1482,14 +1483,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_NewStyle()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 1000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 1000, 241526, -1, 'Soleily - Renatus (test) [Platter].osu')");
             await db.ExecuteAsync(@"INSERT INTO `beatmap_owners` (`user_id`, `beatmap_id`) VALUES (2000, 557810)");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
@@ -1520,7 +1522,8 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsIfBeatmapDeleted()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`, `deleted_at`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP, NOW())");
 
@@ -1551,14 +1554,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsIfBeatmapRanked()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', 1, 0, 1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, 1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, 1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, 1, 'Soleily - Renatus (test) [Platter].osu')");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
@@ -1582,14 +1586,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsIfBeatmapInGraveyard()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -2, 0, 1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -2)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -2, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -2, 'Soleily - Renatus (test) [Platter].osu')");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
@@ -1614,13 +1619,14 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsWhenDoneByAnotherUser_OldStyle()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (3000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (3000, 'not guest', 'not guest', 'JP', '', '', '', '')");
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (test) [Platter].osu')");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
@@ -1644,13 +1650,14 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsWhenDoneByAnotherUser_NewStyle()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (4000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (4000, 'not guest', 'not guest', 'JP', '', '', '', '')");
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 3000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 3000, 241526, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 3000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 3000, 241526, -1, 'Soleily - Renatus (test) [Platter].osu')");
             await db.ExecuteAsync(@"INSERT INTO `beatmap_owners` (`user_id`, `beatmap_id`) VALUES (2000, 557810)");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
@@ -1675,14 +1682,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsOnSuspiciousFileTypes()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (test) [Platter].osu')");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
@@ -1707,14 +1715,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsWhenTryingToOverwriteACompletelyDifferentFile()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (test) [Platter].osu')");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
@@ -1725,7 +1734,7 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
             using var osuFileStream = TestResources.GetResource(osu_filename)!;
-            content.Add(new StreamContent(osuFileStream), "beatmapContents", "Soleily - Renatus (MMzz) [Futsuu].osu"); // uses filename of an existing, completely different file
+            content.Add(new StreamContent(osuFileStream), "beatmapContents", "Soleily - Renatus (test) [Futsuu].osu"); // uses filename of an existing, completely different file
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "2000");
 
@@ -1739,14 +1748,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsIfBeatmapDoesNotHaveCorrectSetIDInside()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (999999, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 999999, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 999999, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 999999, -1, 'Soleily - Renatus (test) [Platter].osu')");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "999999")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
@@ -1771,14 +1781,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsIfBeatmapDoesNotHaveCorrectIDInside()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (test) [Platter].osu')");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
@@ -1809,14 +1820,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_PathTraversalFails(string suspiciousPath)
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 2000, 241526, -1, 'Soleily - Renatus (test) [Platter].osu')");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
             using (var srcStream = TestResources.GetResource(osz_filename)!)
@@ -1838,14 +1850,15 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestSubmitGuestDifficulty_FailsIfFileTooLarge()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (2000, 'guest', 'guest', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
             foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557811, 557820, 557813, 557819 })
                 await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
 
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 1000, 241526, -1, 'Soleily - Renatus (Deif) [Platter].osu')");
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`, `filename`) VALUES (557810, 1000, 241526, -1, 'Soleily - Renatus (test) [Platter].osu')");
             await db.ExecuteAsync(@"INSERT INTO `beatmap_owners` (`user_id`, `beatmap_id`) VALUES (2000, 557810)");
 
             using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
