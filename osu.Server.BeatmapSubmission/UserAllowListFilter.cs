@@ -12,7 +12,7 @@ namespace osu.Server.BeatmapSubmission
     {
         private readonly HashSet<uint> allowedUserIds;
 
-        public UserAllowListFilter(IEnumerable<uint> allowedUserIds)
+        public UserAllowListFilter(HashSet<uint> allowedUserIds)
         {
             this.allowedUserIds = new HashSet<uint>(allowedUserIds);
         }

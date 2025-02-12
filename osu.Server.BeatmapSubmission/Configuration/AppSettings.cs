@@ -65,7 +65,7 @@ namespace osu.Server.BeatmapSubmission.Configuration
 
         public static string? DatadogAgentHost => Environment.GetEnvironmentVariable("DD_AGENT_HOST");
 
-        public static uint[]? UserAllowList
+        public static HashSet<uint>? UserAllowList
         {
             get
             {
@@ -85,7 +85,7 @@ namespace osu.Server.BeatmapSubmission.Configuration
                     result.Add(userId);
                 }
 
-                return result.ToArray();
+                return result;
             }
         }
     }
