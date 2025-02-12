@@ -44,6 +44,9 @@ namespace osu.Server.BeatmapSubmission.Services
 
                     if (beatmapContent.Beatmap.BeatmapInfo.BeatmapSet!.OnlineID != beatmapSetId)
                         throw new InvariantException($"Beatmap has invalid beatmap set ID inside ({filename})");
+
+                    if (!MetadataUtils.IsRomanised(beatmapContent.Beatmap.BeatmapInfo.DifficultyName))
+                        throw new InvariantException($"Difficulty name \"{beatmapContent.Beatmap.BeatmapInfo.DifficultyName}\" contains disallowed characters.");
                 }
 
                 files.Add(new PackageFile(
@@ -97,6 +100,12 @@ namespace osu.Server.BeatmapSubmission.Services
                 bpm = firstBeatLength > 0 ? 60000 / firstBeatLength : 0,
                 filename = PackageFilenameFor(beatmapSetId),
             };
+
+            if (!MetadataUtils.IsRomanised(result.artist))
+                throw new InvariantException("Romanised artist contains disallowed characters.");
+
+            if (!MetadataUtils.IsRomanised(result.title))
+                throw new InvariantException("Romanised title contains disallowed characters.");
 
             // TODO: maybe unnecessary?
             result.displaytitle = $"[bold:0,size:20]{result.artist_unicode}|{result.title_unicode}";
