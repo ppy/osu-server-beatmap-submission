@@ -30,6 +30,9 @@ namespace osu.Server.BeatmapSubmission
             {
                 options.Filters.Add<InvariantExceptionFilter>();
                 options.Filters.Add<ModelStateValidationFilter>();
+
+                if (AppSettings.UserAllowList is HashSet<uint> allowList)
+                    options.Filters.Add(new UserAllowListFilter(allowList));
             });
             builder.Services.AddHttpLogging(logging =>
             {
