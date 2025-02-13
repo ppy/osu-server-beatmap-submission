@@ -32,7 +32,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         protected new HttpClient Client { get; }
 
         private readonly LocalBeatmapStorage beatmapStorage;
-        private readonly Mock<ILegacyIO> mockLegacyIO = new Mock<ILegacyIO>();
+        private readonly Mock<ISharedInterop> mockLegacyIO = new Mock<ISharedInterop>();
 
         public BeatmapSubmissionControllerTest(IntegrationTestWebApplicationFactory<Program> webAppFactory)
             : base(webAppFactory)
@@ -45,7 +45,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                 {
                     services.AddTransient<IBeatmapStorage>(_ => beatmapStorage);
                     services.AddTransient<BeatmapPackagePatcher>();
-                    services.AddTransient<ILegacyIO>(_ => mockLegacyIO.Object);
+                    services.AddTransient<ISharedInterop>(_ => mockLegacyIO.Object);
                     services.AddTransient<IMirrorService, NoOpMirrorService>();
                 });
             }).CreateClient();

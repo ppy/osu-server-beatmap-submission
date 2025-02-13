@@ -96,7 +96,7 @@ namespace osu.Server.BeatmapSubmission
 
             builder.Services.AddTransient<BeatmapPackagePatcher>();
             builder.Services.AddHttpClient();
-            builder.Services.AddTransient<ILegacyIO, LegacyIO>();
+            builder.Services.AddTransient<ISharedInterop, SharedInterop>();
 
             switch (AppSettings.StorageType)
             {

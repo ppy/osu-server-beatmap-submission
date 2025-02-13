@@ -9,12 +9,12 @@ using osu.Server.BeatmapSubmission.Configuration;
 
 namespace osu.Server.BeatmapSubmission.Services
 {
-    public class LegacyIO : ILegacyIO
+    public class SharedInterop : ISharedInterop
     {
         private readonly HttpClient httpClient;
-        private readonly ILogger<LegacyIO> logger;
+        private readonly ILogger<SharedInterop> logger;
 
-        public LegacyIO(HttpClient httpClient, ILogger<LegacyIO> logger)
+        public SharedInterop(HttpClient httpClient, ILogger<SharedInterop> logger)
         {
             this.httpClient = httpClient;
             this.logger = logger;
@@ -27,7 +27,7 @@ namespace osu.Server.BeatmapSubmission.Services
             retry:
 
             long time = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            string url = $"{AppSettings.LegacyIODomain}/_lio/{command}{(command.Contains('?') ? "&" : "?")}timestamp={time}";
+            string url = $"{AppSettings.SharedInteropDomain}/_lio/{command}{(command.Contains('?') ? "&" : "?")}timestamp={time}";
 
             string? serialisedPostObject = postObject == null ? null : JsonSerializer.Serialize(postObject);
             logger.LogDebug("Performing LIO request to {method} {url} (params: {params})", method, url, serialisedPostObject);
