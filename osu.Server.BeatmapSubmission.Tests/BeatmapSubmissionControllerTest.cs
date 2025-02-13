@@ -1090,7 +1090,7 @@ namespace osu.Server.BeatmapSubmission.Tests
         public async Task TestUploadFullPackage_FailsIfNonUnicodeMetadataHasMetadataChars()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
-            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'not test', 'not test', 'JP', '', '', '', '')");
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
 
             await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
 
