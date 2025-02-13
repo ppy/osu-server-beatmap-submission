@@ -26,20 +26,20 @@ namespace osu.Server.BeatmapSubmission
         private readonly ILogger<BeatmapSubmissionController> logger;
         private readonly IBeatmapStorage beatmapStorage;
         private readonly BeatmapPackagePatcher patcher;
-        private readonly ILegacyIO legacyIO;
+        private readonly ISharedInterop sharedInterop;
         private readonly IMirrorService mirrorService;
 
         public BeatmapSubmissionController(
             ILogger<BeatmapSubmissionController> logger,
             IBeatmapStorage beatmapStorage,
             BeatmapPackagePatcher patcher,
-            ILegacyIO legacyIO,
+            ISharedInterop sharedInterop,
             IMirrorService mirrorService)
         {
             this.logger = logger;
             this.beatmapStorage = beatmapStorage;
             this.patcher = patcher;
-            this.legacyIO = legacyIO;
+            this.sharedInterop = sharedInterop;
             this.mirrorService = mirrorService;
         }
 
@@ -170,7 +170,7 @@ namespace osu.Server.BeatmapSubmission
             await transaction.CommitAsync();
 
             if (beatmapRevived)
-                await legacyIO.BroadcastReviveBeatmapSetEventAsync(beatmapSetId.Value);
+                await sharedInterop.BroadcastReviveBeatmapSetEventAsync(beatmapSetId.Value);
 
             (beatmapset_version version, PackageFile[] files)? latestVersion = await db.GetLatestBeatmapsetVersionAsync(beatmapSetId.Value);
 
@@ -238,9 +238,9 @@ namespace osu.Server.BeatmapSubmission
             if (await updateBeatmapSetFromArchiveAsync(beatmapSet, beatmapStream, db))
             {
                 if (newSubmission)
-                    await legacyIO.BroadcastNewBeatmapSetEventAsync(beatmapSetId);
+                    await sharedInterop.BroadcastNewBeatmapSetEventAsync(beatmapSetId);
                 else
-                    await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
+                    await sharedInterop.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
             }
 
             DogStatsd.Increment("submissions_completed", tags: ["full"]);
@@ -300,7 +300,7 @@ namespace osu.Server.BeatmapSubmission
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
 
             if (await updateBeatmapSetFromArchiveAsync(beatmapSet, beatmapStream, db))
-                await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
+                await sharedInterop.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
 
             DogStatsd.Increment("submissions_completed", tags: ["update"]);
             return NoContent();
@@ -361,7 +361,7 @@ namespace osu.Server.BeatmapSubmission
             var archiveStream = await patcher.PatchBeatmapAsync(beatmapSetId, beatmap, beatmapContents);
 
             if (await updateBeatmapSetFromArchiveAsync(beatmapSet, archiveStream, db))
-                await legacyIO.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
+                await sharedInterop.BroadcastUpdateBeatmapSetEventAsync(beatmapSetId, userId);
 
             DogStatsd.Increment("submissions_completed", tags: ["guest"]);
             return NoContent();
@@ -459,17 +459,17 @@ namespace osu.Server.BeatmapSubmission
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSet.beatmapset_id, await beatmapStream.ReadAllBytesToArrayAsync(), parseResult);
 
             if (await db.IsBeatmapSetNominatedAsync(beatmapSet.beatmapset_id))
-                await legacyIO.DisqualifyBeatmapSetAsync(beatmapSet.beatmapset_id, "This beatmap set was updated by the mapper after a nomination. Please ensure to re-check the beatmaps for new issues. If you are the mapper, please comment in this thread on what you changed.");
+                await sharedInterop.DisqualifyBeatmapSetAsync(beatmapSet.beatmapset_id, "This beatmap set was updated by the mapper after a nomination. Please ensure to re-check the beatmaps for new issues. If you are the mapper, please comment in this thread on what you changed.");
 
             await mirrorService.PurgeBeatmapSetAsync(db, beatmapSet.beatmapset_id);
 
             if (!await db.IsBeatmapSetInProcessingQueueAsync(beatmapSet.beatmapset_id))
             {
                 await db.AddBeatmapSetToProcessingQueueAsync(beatmapSet.beatmapset_id);
-                await legacyIO.IndexBeatmapSetAsync(beatmapSet.beatmapset_id);
+                await sharedInterop.IndexBeatmapSetAsync(beatmapSet.beatmapset_id);
             }
 
-            await legacyIO.RefreshBeatmapSetCacheAsync(beatmapSet.beatmapset_id);
+            await sharedInterop.RefreshBeatmapSetCacheAsync(beatmapSet.beatmapset_id);
             return true;
         }
 

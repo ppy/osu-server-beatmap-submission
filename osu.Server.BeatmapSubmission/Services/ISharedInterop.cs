@@ -3,7 +3,7 @@
 
 namespace osu.Server.BeatmapSubmission.Services
 {
-    public interface ILegacyIO
+    public interface ISharedInterop
     {
         Task DisqualifyBeatmapSetAsync(uint beatmapSetId, string message);
         Task BroadcastReviveBeatmapSetEventAsync(uint beatmapSetId);
