@@ -21,16 +21,23 @@ namespace osu.Server.BeatmapSubmission.Services
         private const string versioned_file_directory = "beatmap_files";
 
         private readonly ILogger<S3BeatmapStorage> logger;
-        private readonly AmazonS3Client client;
+        private readonly AmazonS3Client centralClient;
+        private readonly AmazonS3Client beatmapsClient;
 
         public S3BeatmapStorage(ILogger<S3BeatmapStorage> logger)
         {
             this.logger = logger;
-            client = new AmazonS3Client(
+            centralClient = createS3Client(AppSettings.S3CentralBucketRegion);
+            beatmapsClient = createS3Client(AppSettings.S3BeatmapsBucketRegion);
+        }
+
+        private static AmazonS3Client createS3Client(string regionName)
+        {
+            return new AmazonS3Client(
                 new BasicAWSCredentials(AppSettings.S3AccessKey, AppSettings.S3SecretKey),
                 new AmazonS3Config
                 {
-                    RegionEndpoint = RegionEndpoint.USWest1,
+                    RegionEndpoint = RegionEndpoint.GetBySystemName(regionName),
                     UseHttp = true,
                     ForcePathStyle = true,
                     RetryMode = RequestRetryMode.Legacy,
@@ -71,7 +78,7 @@ namespace osu.Server.BeatmapSubmission.Services
         private Task<PutObjectResponse> uploadBeatmapPackage(uint beatmapSetId, byte[] beatmapPackage, MemoryStream stream)
         {
             logger.LogInformation("Beginning upload of package for beatmapset {beatmapSetId}...", beatmapSetId);
-            return client.PutObjectAsync(new PutObjectRequest
+            return centralClient.PutObjectAsync(new PutObjectRequest
             {
                 BucketName = AppSettings.S3CentralBucketName,
                 Key = getPathToPackage(beatmapSetId),
@@ -94,7 +101,7 @@ namespace osu.Server.BeatmapSubmission.Services
                 long length = file.Length;
                 string sha2 = fileStream.ComputeSHA2Hash();
 
-                await client.PutObjectAsync(new PutObjectRequest
+                await centralClient.PutObjectAsync(new PutObjectRequest
                 {
                     BucketName = AppSettings.S3CentralBucketName,
                     Key = getPathToVersionedFile(sha2),
@@ -116,7 +123,7 @@ namespace osu.Server.BeatmapSubmission.Services
                 var fileStream = new MemoryStream(file.contents);
                 long length = fileStream.Length;
 
-                await client.PutObjectAsync(new PutObjectRequest
+                await beatmapsClient.PutObjectAsync(new PutObjectRequest
                 {
                     BucketName = AppSettings.S3BeatmapsBucketName,
                     Key = getPathToBeatmapFile(file.beatmapId),
@@ -134,7 +141,7 @@ namespace osu.Server.BeatmapSubmission.Services
         public async Task ExtractBeatmapSetAsync(uint beatmapSetId, string targetDirectory)
         {
             logger.LogInformation("Retrieving package for beatmap set {beatmapSetId}", beatmapSetId);
-            using var response = await client.GetObjectAsync(AppSettings.S3CentralBucketName, getPathToPackage(beatmapSetId));
+            using var response = await centralClient.GetObjectAsync(AppSettings.S3CentralBucketName, getPathToPackage(beatmapSetId));
             logger.LogInformation("Package for beatmap set {beatmapSetId} retrieved successfully.", beatmapSetId);
             // S3-provided `HashStream` does not support seeking which `ZipArchiveReader` does not like.
             var memoryStream = new MemoryStream(await response.ResponseStream.ReadAllRemainingBytesToArrayAsync());
@@ -165,7 +172,7 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 foreach (var file in files)
                 {
-                    using var response = await client.GetObjectAsync(AppSettings.S3CentralBucketName,
+                    using var response = await centralClient.GetObjectAsync(AppSettings.S3CentralBucketName,
                         getPathToVersionedFile(BitConverter.ToString(file.File.sha2_hash).Replace("-", string.Empty).ToLowerInvariant()));
                     zipWriter.Write(file.VersionFile.filename, response.ResponseStream);
                 }

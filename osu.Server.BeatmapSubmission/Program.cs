@@ -117,7 +117,7 @@ namespace osu.Server.BeatmapSubmission
                                                         + "The variable is used to choose the implementation of beatmap storage used. "
                                                         + "Valid values are:\n"
                                                         + "- `local` (requires setting `LOCAL_BEATMAP_STORAGE_PATH`),\n"
-                                                        + "- `s3` (requires setting `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_CENTRAL_BUCKET_NAME`, `S3_BEATMAPS_BUCKET_NAME`)");
+                                                        + "- `s3` (requires setting `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_CENTRAL_BUCKET_{NAME,REGION}`, `S3_BEATMAPS_BUCKET_{NAME,REGION}`)");
                 }
             }
 
