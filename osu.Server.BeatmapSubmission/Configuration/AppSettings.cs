@@ -54,10 +54,20 @@ namespace osu.Server.BeatmapSubmission.Configuration
             ?? throw new InvalidOperationException("S3_CENTRAL_BUCKET_NAME environment variable not set. "
                                                    + "Please set the value of this variable to the name of the bucket to be used for storing beatmap packages and versioned files on S3.");
 
+        public static string S3CentralBucketRegion =>
+            Environment.GetEnvironmentVariable("S3_CENTRAL_BUCKET_REGION")
+            ?? throw new InvalidOperationException("S3_CENTRAL_BUCKET_REGION environment variable not set. "
+                                                   + $"Please set the value of this variable to the region in which the \"{S3CentralBucketName}\" bucket exists.");
+
         public static string S3BeatmapsBucketName =>
             Environment.GetEnvironmentVariable("S3_BEATMAPS_BUCKET_NAME")
             ?? throw new InvalidOperationException("S3_BEATMAPS_BUCKET_NAME environment variable not set. "
                                                    + "Please set the value of this variable to the name of the bucket to be used for storing .osu beatmap files on S3.");
+
+        public static string S3BeatmapsBucketRegion =>
+            Environment.GetEnvironmentVariable("S3_BEATMAPS_BUCKET_REGION")
+            ?? throw new InvalidOperationException("S3_BEATMAPS_BUCKET_REGION environment variable not set. "
+                                                   + $"Please set the value of this variable to the region in which the \"{S3BeatmapsBucketName}\" bucket exists.");
 
         public static bool PurgeBeatmapMirrorCaches => Environment.GetEnvironmentVariable("PURGE_BEATMAP_MIRROR_CACHES") != "0";
 
