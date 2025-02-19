@@ -165,6 +165,7 @@ namespace osu.Server.BeatmapSubmission
             beatmapIds.AddRange(request.BeatmapsToKeep);
 
             await db.SetBeatmapSetOnlineStatusAsync(beatmapSetId.Value, (BeatmapOnlineStatus)request.Target, transaction);
+            await db.SetBeatmapsetDiscussionNotificationState(beatmapSetId.Value, userId, request.NotifyOnDiscussionReplies, transaction);
             await db.UpdateBeatmapCountForSet(beatmapSetId.Value, totalBeatmapCount, transaction);
 
             await transaction.CommitAsync();

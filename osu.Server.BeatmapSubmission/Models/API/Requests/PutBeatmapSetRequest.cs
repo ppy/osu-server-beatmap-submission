@@ -35,6 +35,9 @@ namespace osu.Server.BeatmapSubmission.Models.API.Requests
 
         [JsonPropertyName("target")]
         public BeatmapSubmissionTarget Target { get; set; } = BeatmapSubmissionTarget.WIP;
+
+        [JsonPropertyName("notify_on_discussion_replies")]
+        public bool NotifyOnDiscussionReplies { get; set; }
     }
 
     /// <summary>

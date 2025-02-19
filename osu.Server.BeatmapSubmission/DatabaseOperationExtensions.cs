@@ -225,6 +225,41 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
+        public static async Task SetBeatmapsetDiscussionNotificationState(this MySqlConnection db, uint beatmapSetId, uint userId, bool shouldNotify, MySqlTransaction? transaction = null)
+        {
+            if (shouldNotify)
+            {
+                await db.ExecuteAsync(
+                    """
+                    INSERT IGNORE INTO `beatmapset_watches` (`beatmapset_id`, `user_id`, `created_at`, `updated_at`)
+                        VALUES (@beatmapset_id, @user_id, NOW(), NOW());
+                        
+                    INSERT IGNORE INTO `follows` (`user_id`, `notifiable_type`, `notifiable_id`, `subtype`, `created_at`, `updated_at`)
+                        VALUES (@user_id, 'beatmapset', @beatmapset_id, 'comment', NOW(), NOW());
+                    """,
+                    new
+                    {
+                        beatmapset_id = beatmapSetId,
+                        user_id = userId,
+                    },
+                    transaction);
+            }
+            else
+            {
+                await db.ExecuteAsync(
+                    """
+                    DELETE FROM `beatmapset_watches` WHERE `beatmapset_id` = @beatmapset_id AND `user_id` = @user_id;
+                    DELETE FROM `follows` WHERE `user_id` = @user_id AND `notifiable_id` = @beatmapset_id AND `notifiable_type` = 'beatmapset' AND `subtype` = 'comment';
+                    """,
+                    new
+                    {
+                        beatmapset_id = beatmapSetId,
+                        user_id = userId,
+                    },
+                    transaction);
+            }
+        }
+
         public static Task UpdateBeatmapAsync(this MySqlConnection db, osu_beatmap beatmap, MySqlTransaction? transaction = null)
         {
             return db.ExecuteAsync(
