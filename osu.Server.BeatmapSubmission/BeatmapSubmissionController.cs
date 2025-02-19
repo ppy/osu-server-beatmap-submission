@@ -148,7 +148,7 @@ namespace osu.Server.BeatmapSubmission
             {
                 logger.LogInformation("Deleting beatmaps {beatmapIds} in set {beatmapSetId}", beatmapsToDelete, beatmapSetId);
                 foreach (uint beatmapId in beatmapsToDelete)
-                    await db.DeleteBeatmapAsync(beatmapId, transaction);
+                    await db.SoftDeleteBeatmapAsync(beatmapId, transaction);
             }
 
             var beatmapIds = new List<uint>();
