@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Threading.RateLimiting;
 using JetBrains.Annotations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.Extensions.Options;
 using osu.Server.BeatmapSubmission.Authentication;
@@ -17,7 +18,7 @@ namespace osu.Server.BeatmapSubmission
     public class Program
     {
         public const string RATE_LIMIT_POLICY = "SlidingWindowRateLimiter";
-
+        public const int ABSOLUTE_REQUEST_SIZE_LIMIT_BYTES = 200_000_000;
         public const string INTEGRATION_TEST_ENVIRONMENT = "IntegrationTest";
 
         public static void Main(string[] args)
@@ -168,6 +169,9 @@ namespace osu.Server.BeatmapSubmission
                     }
                 });
             }
+
+            builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = ABSOLUTE_REQUEST_SIZE_LIMIT_BYTES);
+            builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = ABSOLUTE_REQUEST_SIZE_LIMIT_BYTES);
 
             var app = builder.Build();
 
