@@ -199,10 +199,6 @@ namespace osu.Server.BeatmapSubmission
         [EnableRateLimiting(Program.RATE_LIMIT_POLICY)]
         public async Task<IActionResult> UploadFullPackageAsync(
             [FromRoute] uint beatmapSetId,
-            // TODO: this won't fly on production, biggest existing beatmap archives exceed buffering limits (`MultipartBodyLengthLimit` = 128MB specifically)
-            // potentially also https://github.com/aspnet/Announcements/issues/267
-            // see: https://learn.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads?view=aspnetcore-8.0#small-and-large-files
-            // needs further testing
             IFormFile beatmapArchive)
         {
             uint userId = User.GetUserId();
