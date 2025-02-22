@@ -49,7 +49,13 @@ namespace osu.Server.BeatmapSubmission.Services
                 {
                     beatmapContent = getBeatmapContent(filename, stream);
 
-                    if (beatmapContent.Beatmap.BeatmapInfo.BeatmapSet!.OnlineID != beatmapSetId)
+                    // slightly unfortunate but possible if the set ID is completely missing.
+                    // refer to: https://github.com/ppy/osu/blob/a556049c1b29808b5dd9a3d65c7efb5d02315a0c/osu.Game/Beatmaps/Beatmap.cs#L45-L58,
+                    // https://github.com/ppy/osu/blob/a556049c1b29808b5dd9a3d65c7efb5d02315a0c/osu.Game/Beatmaps/Formats/LegacyBeatmapDecoder.cs#L377-L379
+                    if (beatmapContent.Beatmap.BeatmapInfo.BeatmapSet == null)
+                        throw new InvariantException($"Beatmap has no beatmap set ID inside ({filename})");
+
+                    if (beatmapContent.Beatmap.BeatmapInfo.BeatmapSet.OnlineID != beatmapSetId)
                         throw new InvariantException($"Beatmap has invalid beatmap set ID inside ({filename})");
 
                     if (!MetadataUtils.IsRomanised(beatmapContent.Beatmap.BeatmapInfo.DifficultyName))
