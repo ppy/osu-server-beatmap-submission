@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using osu.Framework.Extensions;
 using osu.Game.Beatmaps;
@@ -57,12 +58,9 @@ namespace osu.Server.BeatmapSubmission.Services
 
                     if (beatmapContent.Beatmap.BeatmapInfo.BeatmapSet.OnlineID != beatmapSetId)
                         throw new InvariantException($"Beatmap has invalid beatmap set ID inside ({filename})");
-
-                    if (!MetadataUtils.IsRomanised(beatmapContent.Beatmap.BeatmapInfo.DifficultyName))
-                        throw new InvariantException($"Difficulty name \"{beatmapContent.Beatmap.BeatmapInfo.DifficultyName}\" contains disallowed characters.");
                 }
 
-                files.Add(new PackageFile(
+                var file = new PackageFile(
                     new beatmapset_file
                     {
                         sha2_hash = SHA256.HashData(stream),
@@ -73,7 +71,13 @@ namespace osu.Server.BeatmapSubmission.Services
                         filename = filename,
                     },
                     beatmapContent
-                ));
+                );
+
+                var errors = new List<ValidationResult>();
+                if (!Validator.TryValidateObject(file.VersionFile, new ValidationContext(file.VersionFile), errors, validateAllProperties: true))
+                    throw new InvariantException(string.Join(Environment.NewLine, errors.Select(r => r.ErrorMessage)));
+
+                files.Add(file);
             }
 
             var beatmapSetRow = constructDatabaseRowForBeatmapset(beatmapSetId, archiveReader,
@@ -118,11 +122,9 @@ namespace osu.Server.BeatmapSubmission.Services
             if (creator != expectedCreator)
                 throw new InvariantException("At least one difficulty has a specified creator that isn't the beatmap host's username.");
 
-            if (!MetadataUtils.IsRomanised(result.artist))
-                throw new InvariantException("Romanised artist contains disallowed characters.");
-
-            if (!MetadataUtils.IsRomanised(result.title))
-                throw new InvariantException("Romanised title contains disallowed characters.");
+            var errors = new List<ValidationResult>();
+            if (!Validator.TryValidateObject(result, new ValidationContext(result), errors, validateAllProperties: true))
+                throw new InvariantException(string.Join(Environment.NewLine, errors.Select(r => r.ErrorMessage)));
 
             // TODO: maybe unnecessary?
             result.displaytitle = $"[bold:0,size:20]{result.artist_unicode}|{result.title_unicode}";
@@ -186,6 +188,11 @@ namespace osu.Server.BeatmapSubmission.Services
             };
 
             countObjectsByType(Beatmap, result);
+
+            var errors = new List<ValidationResult>();
+            if (!Validator.TryValidateObject(result, new ValidationContext(result), errors, validateAllProperties: true))
+                throw new InvariantException(string.Join(Environment.NewLine, errors.Select(r => r.ErrorMessage)));
+
             return result;
         }
 

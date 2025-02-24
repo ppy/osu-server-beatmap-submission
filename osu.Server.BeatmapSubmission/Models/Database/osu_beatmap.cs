@@ -3,7 +3,9 @@
 
 // ReSharper disable InconsistentNaming
 
+using System.ComponentModel.DataAnnotations;
 using osu.Game.Beatmaps;
+using osu.Server.BeatmapSubmission.Models.Database.Validation;
 
 namespace osu.Server.BeatmapSubmission.Models.Database
 {
@@ -12,9 +14,16 @@ namespace osu.Server.BeatmapSubmission.Models.Database
         public uint beatmap_id { get; set; }
         public uint? beatmapset_id { get; set; }
         public uint user_id { get; set; }
+
+        [MaxLength(150, ErrorMessage = "Beatmap difficulty filenames must not exceed 150 characters.")]
         public string? filename { get; set; }
+
         public string? checksum { get; set; }
+
+        [MaxLength(80, ErrorMessage = "Beatmap difficulty names must not exceed 80 characters.")]
+        [Romanised(ErrorMessage = "Difficulty name contains disallowed characters.")]
         public string version { get; set; } = string.Empty;
+
         public uint total_length { get; set; }
         public uint hit_length { get; set; }
         public uint countTotal { get; set; }
