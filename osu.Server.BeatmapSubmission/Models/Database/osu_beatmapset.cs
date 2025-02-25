@@ -4,7 +4,9 @@
 // ReSharper disable InconsistentNaming
 // ReSharper disable CollectionNeverQueried
 
+using System.ComponentModel.DataAnnotations;
 using osu.Game.Beatmaps;
+using osu.Server.BeatmapSubmission.Models.Database.Validation;
 
 namespace osu.Server.BeatmapSubmission.Models.Database
 {
@@ -13,13 +15,30 @@ namespace osu.Server.BeatmapSubmission.Models.Database
         public uint beatmapset_id { get; set; }
         public uint user_id { get; set; }
         public uint thread_id { get; set; }
+
+        [MaxLength(80, ErrorMessage = "Romanised artist cannot exceed 80 characters.")]
+        [Romanised(ErrorMessage = "Romanised artist contains disallowed characters.")]
         public string artist { get; set; } = string.Empty;
+
+        [MaxLength(80, ErrorMessage = "Artist cannot exceed 80 characters.")]
         public string? artist_unicode { get; set; }
+
+        [MaxLength(80, ErrorMessage = "Romanised title cannot exceed 80 characters.")]
+        [Romanised(ErrorMessage = "Romanised title contains disallowed characters.")]
         public string title { get; set; } = string.Empty;
+
+        [MaxLength(80, ErrorMessage = "Title cannot exceed 80 characters.")]
         public string? title_unicode { get; set; }
+
+        [MaxLength(80, ErrorMessage = "Author username cannot exceed 80 characters.")]
         public string creator { get; set; } = string.Empty;
+
+        [MaxLength(200, ErrorMessage = "Source cannot exceed 200 characters.")]
         public string source { get; set; } = string.Empty;
+
+        [MaxLength(1000, ErrorMessage = "Tags cannot exceed 1000 characters.")]
         public string tags { get; set; } = string.Empty;
+
         public bool video { get; set; }
         public bool storyboard { get; set; }
         public bool epilepsy { get; set; }

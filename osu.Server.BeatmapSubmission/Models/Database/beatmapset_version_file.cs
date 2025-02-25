@@ -3,12 +3,16 @@
 
 // ReSharper disable InconsistentNaming
 
+using System.ComponentModel.DataAnnotations;
+
 namespace osu.Server.BeatmapSubmission.Models.Database
 {
     public class beatmapset_version_file
     {
         public ulong file_id { get; set; }
         public ulong version_id { get; set; }
+
+        [MaxLength(500, ErrorMessage = "Filenames cannot exceed 500 characters.")]
         public string filename { get; set; } = string.Empty;
     }
 }

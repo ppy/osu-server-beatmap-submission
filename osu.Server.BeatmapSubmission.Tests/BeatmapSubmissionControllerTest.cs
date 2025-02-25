@@ -1137,6 +1137,31 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestUploadFullPackage_FailsIfMetadataTooLong()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557810 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var stream = TestResources.GetResource("metadata-too-long.osz")!;
+            content.Add(new StreamContent(stream), "beatmapArchive", osz_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            Assert.Contains("Beatmap difficulty names must not exceed 80 characters.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        }
+
+        [Fact]
         public async Task TestPatchPackage()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
