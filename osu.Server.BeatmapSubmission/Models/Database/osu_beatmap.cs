@@ -24,16 +24,36 @@ namespace osu.Server.BeatmapSubmission.Models.Database
         [Romanised(ErrorMessage = "Difficulty name contains disallowed characters.")]
         public string version { get; set; } = string.Empty;
 
+        [Range(0, 16777215, ErrorMessage = "The beatmap is too long.")]
         public uint total_length { get; set; }
+
+        [Range(0, 16777215, ErrorMessage = "The beatmap is too long.")]
         public uint hit_length { get; set; }
+
+        [Range(0, 16777215, ErrorMessage = "The beatmap has too many objects.")]
         public uint countTotal { get; set; }
+
+        [Range(0, 16777215, ErrorMessage = "The beatmap has too many objects.")]
         public uint countNormal { get; set; }
+
+        [Range(0, 16777215, ErrorMessage = "The beatmap has too many objects.")]
         public uint countSlider { get; set; }
+
+        [Range(0, 16777215, ErrorMessage = "The beatmap has too many objects.")]
         public uint countSpinner { get; set; }
+
+        [Range(0.0, 10.0, ErrorMessage = "The drain rate of the beatmap is out of range.")]
         public float diff_drain { get; set; }
+
+        [Range(1.0, 18.0, ErrorMessage = "The circle size / key count of the beatmap is out of range.")]
         public float diff_size { get; set; }
+
+        [Range(0.0, 10.0, ErrorMessage = "The overall difficulty of the beatmap is out of range.")]
         public float diff_overall { get; set; }
+
+        [Range(0.0, 10.0, ErrorMessage = "The approach rate of the beatmap is out of range.")]
         public float diff_approach { get; set; }
+
         public ushort playmode { get; set; }
         public BeatmapOnlineStatus approved { get; set; }
 
