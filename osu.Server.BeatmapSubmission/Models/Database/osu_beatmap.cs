@@ -24,22 +24,22 @@ namespace osu.Server.BeatmapSubmission.Models.Database
         [Romanised(ErrorMessage = "Difficulty name contains disallowed characters.")]
         public string version { get; set; } = string.Empty;
 
-        [Range(0, 16777215, ErrorMessage = "The beatmap is too long.")]
+        [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap is too long.")]
         public uint total_length { get; set; }
 
-        [Range(0, 16777215, ErrorMessage = "The beatmap is too long.")]
+        [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap is too long.")]
         public uint hit_length { get; set; }
 
-        [Range(0, 16777215, ErrorMessage = "The beatmap has too many objects.")]
+        [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap has too many objects.")]
         public uint countTotal { get; set; }
 
-        [Range(0, 16777215, ErrorMessage = "The beatmap has too many objects.")]
+        [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap has too many objects.")]
         public uint countNormal { get; set; }
 
-        [Range(0, 16777215, ErrorMessage = "The beatmap has too many objects.")]
+        [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap has too many objects.")]
         public uint countSlider { get; set; }
 
-        [Range(0, 16777215, ErrorMessage = "The beatmap has too many objects.")]
+        [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap has too many objects.")]
         public uint countSpinner { get; set; }
 
         [Range(0.0, 10.0, ErrorMessage = "The drain rate of the beatmap is out of range.")]
