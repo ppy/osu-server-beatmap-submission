@@ -65,7 +65,7 @@ namespace osu.Server.BeatmapSubmission
 
             await checkUserAccountStanding(db, userId);
 
-            if (await db.GetUserMonthlyPlaycountAsync(userId) < 5)
+            if (await db.GetUserTotalPlaycountAsync(userId) < 5)
                 throw new InvariantException("Thanks for your contribution, but please play the game first!");
 
             uint? beatmapSetId = request.BeatmapSetID;
