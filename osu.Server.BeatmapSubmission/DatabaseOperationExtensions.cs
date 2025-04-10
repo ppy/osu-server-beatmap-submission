@@ -54,7 +54,7 @@ namespace osu.Server.BeatmapSubmission
             return ban != null && ban.period != 0 && ban.EndTime > DateTimeOffset.Now;
         }
 
-        public static async Task<ulong> GetUserMonthlyPlaycountAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
+        public static async Task<ulong> GetUserTotalPlaycountAsync(this MySqlConnection db, uint userId, MySqlTransaction? transaction = null)
         {
             return await db.QuerySingleAsync<ulong?>(
                 @"SELECT SUM(`playcount`) FROM `osu_user_month_playcount` WHERE `user_id` = @user_id",
