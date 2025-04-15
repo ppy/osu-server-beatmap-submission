@@ -1028,8 +1028,10 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.False(response.IsSuccessStatusCode);
         }
 
-        [Fact]
-        public async Task TestUploadFullPackage_FailsIfSizeTooLarge()
+        [Theory]
+        [InlineData(50 * 1024 * 1024)]
+        [InlineData(200000001)]
+        public async Task TestUploadFullPackage_FailsIfSizeTooLarge(long size)
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
             await db.ExecuteAsync("INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
@@ -1042,7 +1044,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
 
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
-            byte[] data = new byte[50 * 1024 * 1024];
+            byte[] data = new byte[size];
             new Random(1337).NextBytes(data);
             var stream = new MemoryStream();
 
@@ -1059,7 +1061,7 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
-            Assert.Contains("The beatmap package is too large.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+            Assert.Contains("too large", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
         [Fact]
