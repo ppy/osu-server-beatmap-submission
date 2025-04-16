@@ -493,22 +493,8 @@ namespace osu.Server.BeatmapSubmission
             if (packageSizeBytes > allowableSizeBytes)
             {
                 throw new InvariantException($"The beatmap package is too large. "
-                                             + $"The size of the package with the requested changes applied is {humaniseSize(packageSizeBytes)}. "
-                                             + $"The maximum allowable size is {humaniseSize(allowableSizeBytes)}.");
-            }
-
-            static string humaniseSize(double sizeBytes)
-            {
-                string humanisedSize;
-
-                if (sizeBytes < 1024)
-                    humanisedSize = $@"{sizeBytes}B";
-                else if (sizeBytes < 1024 * 1024)
-                    humanisedSize = $@"{sizeBytes / 1024:#.0}kB";
-                else
-                    humanisedSize = $@"{sizeBytes / 1024 / 1024:#.0}MB";
-
-                return humanisedSize;
+                                             + $"The size of the package with the requested changes applied is {FormatUtils.HumaniseSize(packageSizeBytes)}. "
+                                             + $"The maximum allowable size is {FormatUtils.HumaniseSize(allowableSizeBytes)}.");
             }
         }
 

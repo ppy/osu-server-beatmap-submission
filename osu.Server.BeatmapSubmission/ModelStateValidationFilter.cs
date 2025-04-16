@@ -3,6 +3,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using osu.Server.BeatmapSubmission.Models.API.Responses;
 
 namespace osu.Server.BeatmapSubmission
 {
@@ -28,7 +29,15 @@ namespace osu.Server.BeatmapSubmission
                     continue;
 
                 foreach (var error in value.Errors)
+                {
+                    if (string.IsNullOrEmpty(key) && (error.ErrorMessage.Contains("Request body too large") || error.ErrorMessage.Contains("Multipart body length limit")))
+                    {
+                        context.Result = new ErrorResponse($"Request body too large. Size must be lower than {FormatUtils.HumaniseSize(Program.ABSOLUTE_REQUEST_SIZE_LIMIT_BYTES)}.").ToActionResult();
+                        return;
+                    }
+
                     errorList.Add($"{{ field: \"{key}\", message: \"{error.ErrorMessage}\", exception: \"{error.Exception}\" }}");
+                }
             }
 
             logger.LogError($"""
