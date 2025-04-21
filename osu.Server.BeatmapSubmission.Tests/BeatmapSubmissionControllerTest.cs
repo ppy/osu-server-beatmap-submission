@@ -1636,7 +1636,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             {
                 Assert.False(response.IsSuccessStatusCode);
 
-                Assert.Contains(playmode == 3 ? "The circle size of the beatmap is out of range." : "The key count of the beatmap is invalid.",
+                Assert.Contains(playmode == 3 ? "The key count of the beatmap is invalid." : "The circle size of the beatmap is out of range.",
                     (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
             }
         }

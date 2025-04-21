@@ -5,11 +5,12 @@
 
 using System.ComponentModel.DataAnnotations;
 using osu.Game.Beatmaps;
+using osu.Game.Beatmaps.Formats;
 using osu.Server.BeatmapSubmission.Models.Database.Validation;
 
 namespace osu.Server.BeatmapSubmission.Models.Database
 {
-    public class osu_beatmap
+    public class osu_beatmap : IValidatableObject
     {
         public uint beatmap_id { get; set; }
         public uint? beatmapset_id { get; set; }
@@ -45,7 +46,6 @@ namespace osu.Server.BeatmapSubmission.Models.Database
         [Range(0.0, 10.0, ErrorMessage = "The drain rate of the beatmap is out of range.")]
         public float diff_drain { get; set; }
 
-        [Range(1.0, 18.0, ErrorMessage = "The circle size / key count of the beatmap is out of range.")]
         public float diff_size { get; set; }
 
         [Range(0.0, 10.0, ErrorMessage = "The overall difficulty of the beatmap is out of range.")]
@@ -69,5 +69,29 @@ namespace osu.Server.BeatmapSubmission.Models.Database
         // deleted_at skipped on purpose
 
         public float bpm { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            switch (playmode)
+            {
+                case 0:
+                case 1:
+                case 2:
+                {
+                    if (diff_size < 0 || diff_size > 10)
+                        yield return new ValidationResult("The circle size of the beatmap is out of range.");
+
+                    break;
+                }
+
+                case 3:
+                {
+                    if (diff_size != (int)diff_size || diff_size < 1 || diff_size > LegacyBeatmapDecoder.MAX_MANIA_KEY_COUNT)
+                        yield return new ValidationResult("The key count of the beatmap is invalid.");
+
+                    break;
+                }
+            }
+        }
     }
 }
