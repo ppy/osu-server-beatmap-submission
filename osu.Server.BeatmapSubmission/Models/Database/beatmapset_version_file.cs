@@ -12,7 +12,7 @@ namespace osu.Server.BeatmapSubmission.Models.Database
         public ulong file_id { get; set; }
         public ulong version_id { get; set; }
 
-        [MaxLength(500, ErrorMessage = "Filenames cannot exceed 500 characters.")]
+        [MaxLength(500, ErrorMessage = "Path names within the archive cannot exceed 500 characters.")]
         public string filename { get; set; } = string.Empty;
     }
 }

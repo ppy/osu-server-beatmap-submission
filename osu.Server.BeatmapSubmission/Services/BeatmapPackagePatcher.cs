@@ -37,6 +37,10 @@ namespace osu.Server.BeatmapSubmission.Services
             {
                 string targetFilename = Path.Combine(tempDirectory.FullName, fileChanged.FileName);
                 string directoryPart = Path.GetDirectoryName(targetFilename) ?? string.Empty;
+                string filePart = Path.GetFileName(targetFilename);
+
+                if (filePart.Length > 255)
+                    throw new InvariantException($"The filename \"{filePart}\" is too long.");
 
                 if (!Directory.Exists(directoryPart))
                     Directory.CreateDirectory(directoryPart);
