@@ -88,10 +88,15 @@ namespace osu.Server.BeatmapSubmission.Services
 
         private static BeatmapContent getBeatmapContent(string filePath, Stream contents)
         {
-            var decoder = new LegacyBeatmapDecoder();
-            var beatmap = decoder.Decode(new LineBufferedReader(contents));
+            string fileName = Path.GetFileName(filePath);
+            using var reader = new LineBufferedReader(contents, leaveOpen: true);
+            var decoder = Decoder.GetDecoder<Beatmap>(reader);
+            var beatmap = decoder.Decode(reader);
 
-            return new BeatmapContent(Path.GetFileName(filePath), contents.ComputeMD5Hash(), beatmap);
+            if (beatmap.BeatmapVersion < LegacyBeatmapDecoder.LATEST_VERSION)
+                throw new InvariantException($"Version of file \"{fileName}\" is too old (should be v14 or higher)");
+
+            return new BeatmapContent(fileName, contents.ComputeMD5Hash(), beatmap);
         }
 
         private osu_beatmapset constructDatabaseRowForBeatmapset(uint beatmapSetId, ArchiveReader archiveReader, ICollection<BeatmapContent> beatmaps)
