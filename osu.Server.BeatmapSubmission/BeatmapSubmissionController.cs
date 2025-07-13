@@ -438,7 +438,12 @@ namespace osu.Server.BeatmapSubmission
 
                 if (packageFile.BeatmapContent is BeatmapContent content)
                 {
-                    if (!beatmapIds.Remove((uint)content.Beatmap.BeatmapInfo.OnlineID))
+                    uint beatmapId = (uint)content.Beatmap.BeatmapInfo.OnlineID;
+
+                    if (await db.FilenameExistsForDifferentBeatmap(beatmapId, packageFile.VersionFile.filename, transaction))
+                        throw new InvariantException($"Filename already exists as part of different beatmap set ({packageFile.VersionFile.filename})", LogLevel.Warning);
+
+                    if (!beatmapIds.Remove(beatmapId))
                         throw new InvariantException($"Beatmap has invalid ID inside ({packageFile.VersionFile.filename}).", LogLevel.Warning);
 
                     await db.UpdateBeatmapAsync(content.GetDatabaseRow(), transaction);
@@ -456,7 +461,10 @@ namespace osu.Server.BeatmapSubmission
             await beatmapStorage.StoreBeatmapSetAsync(beatmapSet.beatmapset_id, await beatmapStream.ReadAllBytesToArrayAsync(), parseResult);
 
             if (await db.IsBeatmapSetNominatedAsync(beatmapSet.beatmapset_id))
-                await sharedInterop.DisqualifyBeatmapSetAsync(beatmapSet.beatmapset_id, "This beatmap set was updated by the mapper after a nomination. Please ensure to re-check the beatmaps for new issues. If you are the mapper, please comment in this thread on what you changed.");
+            {
+                await sharedInterop.DisqualifyBeatmapSetAsync(beatmapSet.beatmapset_id,
+                    "This beatmap set was updated by the mapper after a nomination. Please ensure to re-check the beatmaps for new issues. If you are the mapper, please comment in this thread on what you changed.");
+            }
 
             await mirrorService.PurgeBeatmapSetAsync(db, beatmapSet.beatmapset_id);
 
