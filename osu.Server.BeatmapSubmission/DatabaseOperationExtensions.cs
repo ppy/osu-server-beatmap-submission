@@ -394,7 +394,7 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
-        public static async Task<bool> FilenameExistsForDifferentBeatmap(this MySqlConnection db, uint beatmapId, string filename, MySqlTransaction? transaction = null)
+        public static async Task<bool> FilenameExistsForDifferentBeatmapAsync(this MySqlConnection db, uint beatmapId, string filename, MySqlTransaction? transaction = null)
         {
             return await db.QuerySingleAsync<uint>(
                 "SELECT COUNT(1) FROM osu_beatmaps WHERE filename = @filename AND beatmap_id != @beatmap_id AND deleted_at IS NULL",

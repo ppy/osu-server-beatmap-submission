@@ -440,7 +440,7 @@ namespace osu.Server.BeatmapSubmission
                 {
                     uint beatmapId = (uint)content.Beatmap.BeatmapInfo.OnlineID;
 
-                    if (await db.FilenameExistsForDifferentBeatmap(beatmapId, packageFile.VersionFile.filename, transaction))
+                    if (await db.FilenameExistsForDifferentBeatmapAsync(beatmapId, packageFile.VersionFile.filename, transaction))
                         throw new InvariantException($"Filename already exists as part of different beatmap set ({packageFile.VersionFile.filename})", LogLevel.Warning);
 
                     if (!beatmapIds.Remove(beatmapId))
