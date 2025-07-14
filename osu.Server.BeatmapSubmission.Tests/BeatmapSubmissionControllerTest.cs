@@ -1049,6 +1049,37 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Contains("Beatmap has invalid ID inside", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
         }
 
+        [Fact]
+        public async Task TestUploadFullPackage_FailsIfDuplicateFilename()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync(
+                "INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(
+                @"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            // A different beatmap exists with a filename from the upload.
+            // Filenames should be unique globally.
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `filename`) VALUES (@beatmapId, @filename)", new { beatmapId = 123456, filename = "Soleily - Renatus (test) [Platter].osu" });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var stream = TestResources.GetResource(osz_filename)!;
+            content.Add(new StreamContent(stream), "beatmapArchive", osz_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            Assert.Contains("Filename already exists as part of different beatmap set", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+        }
+
         [Theory]
         [InlineData("../suspicious")]
         [InlineData("..\\suspicious")]

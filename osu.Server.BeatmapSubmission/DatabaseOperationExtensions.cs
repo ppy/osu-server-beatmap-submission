@@ -394,6 +394,18 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
+        public static async Task<bool> FilenameExistsForDifferentBeatmapAsync(this MySqlConnection db, uint beatmapId, string filename, MySqlTransaction? transaction = null)
+        {
+            return await db.QuerySingleAsync<uint>(
+                "SELECT COUNT(1) FROM osu_beatmaps WHERE filename = @filename AND beatmap_id != @beatmap_id AND deleted_at IS NULL",
+                new
+                {
+                    beatmap_id = beatmapId,
+                    filename = filename,
+                },
+                transaction) > 0;
+        }
+
         public static async Task<bool> IsBeatmapSetInProcessingQueueAsync(this MySqlConnection db, uint beatmapSetId, MySqlTransaction? transaction = null)
         {
             return await db.QuerySingleAsync<uint>(
