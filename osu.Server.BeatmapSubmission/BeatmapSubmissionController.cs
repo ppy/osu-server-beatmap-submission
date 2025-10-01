@@ -421,7 +421,8 @@ namespace osu.Server.BeatmapSubmission
 
                 if (fileSet.SetEquals(parseResult.Files))
                 {
-                    await transaction.RollbackAsync();
+                    await db.MarkBeatmapSetUpdatedAsync(beatmapSet, transaction);
+                    await transaction.CommitAsync();
                     return false;
                 }
             }
