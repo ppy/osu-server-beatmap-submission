@@ -1840,6 +1840,44 @@ namespace osu.Server.BeatmapSubmission.Tests
         }
 
         [Fact]
+        public async Task TestPatch_BeatmapWithNoChanges_BumpsLastUpdateDate()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync(
+                "INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(
+                @"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            // do a full upload first - required to correctly populate versioning tables
+            var putRequest = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            using var stream = TestResources.GetResource(osz_filename)!;
+            content.Add(new StreamContent(stream), "beatmapArchive", osz_filename);
+            putRequest.Content = content;
+            putRequest.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var putResponse = await Client.SendAsync(putRequest);
+            Assert.True(putResponse.IsSuccessStatusCode);
+
+            // manually doctor the beatmapset's last update date to make sure it's bumped on a no-op patch
+            await db.ExecuteAsync(@"UPDATE `osu_beatmapsets` SET `last_update` = '2020-01-01 00:00:00' WHERE `beatmapset_id` = 241526");
+
+            // perform a no-op patch
+            var patchRequest = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
+            patchRequest.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(patchRequest);
+            Assert.True(response.IsSuccessStatusCode);
+
+            WaitForDatabaseState(@"SELECT COUNT(1) FROM `osu_beatmapsets` WHERE `beatmapset_id` = 241526 AND `last_update` > '2020-01-01 00:00:00'", 1, CancellationToken);
+        }
+
+        [Fact]
         public async Task TestSubmitGuestDifficulty_OldStyle()
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
