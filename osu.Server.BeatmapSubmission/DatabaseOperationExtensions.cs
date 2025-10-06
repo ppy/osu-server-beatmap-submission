@@ -295,6 +295,17 @@ namespace osu.Server.BeatmapSubmission
                 transaction);
         }
 
+        /// <summary>
+        /// Only bumps the <paramref name="beatmapset"/>'s <c>last_update</c> date without performing any other changes.
+        /// Used in scenarios where a submission occurred for a beatmap with no changes.
+        /// Bumping the update date is important in such cases, because if it is e.g. an update after reviving the beatmap,
+        /// not bumping the update date will cause the beatmap to move to the graveyard again on the next day after the update.
+        /// </summary>
+        public static Task MarkBeatmapSetUpdatedAsync(this MySqlConnection db, osu_beatmapset beatmapset, MySqlTransaction? transaction = null)
+        {
+            return db.ExecuteAsync("UPDATE `osu_beatmapsets` SET `last_update` = CURRENT_TIMESTAMP WHERE `beatmapset_id` = @beatmapset_id", beatmapset, transaction);
+        }
+
         public static async Task<ulong> InsertBeatmapsetFileAsync(this MySqlConnection db, beatmapset_file file, MySqlTransaction? transaction = null)
         {
             var existing = await db.QuerySingleOrDefaultAsync<beatmapset_file?>(
