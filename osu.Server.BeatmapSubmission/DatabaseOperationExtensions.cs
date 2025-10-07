@@ -286,7 +286,7 @@ namespace osu.Server.BeatmapSubmission
                 UPDATE `osu_beatmapsets`
                 SET
                     `artist` = @artist, `artist_unicode` = @artist_unicode, `title` = @title, `title_unicode` = @title_unicode,
-                    `source` = @source, `tags` = @tags, `video` = @video, `storyboard` = @storyboard,
+                    `creator` = @creator, `source` = @source, `tags` = @tags, `video` = @video, `storyboard` = @storyboard,
                     `storyboard_hash` = @storyboard_hash, `bpm` = @bpm, `filename` = @filename, `displaytitle` = @displaytitle,
                     `body_hash` = NULL, `header_hash` = NULL, `osz2_hash` = NULL, `active` = 1, `last_update` = CURRENT_TIMESTAMP
                 WHERE `beatmapset_id` = @beatmapset_id
@@ -296,14 +296,15 @@ namespace osu.Server.BeatmapSubmission
         }
 
         /// <summary>
-        /// Only bumps the <paramref name="beatmapset"/>'s <c>last_update</c> date without performing any other changes.
+        /// Only updates the <paramref name="beatmapset"/>'s <c>last_update</c> date and <c>creator</c> name without performing any other changes.
         /// Used in scenarios where a submission occurred for a beatmap with no changes.
         /// Bumping the update date is important in such cases, because if it is e.g. an update after reviving the beatmap,
         /// not bumping the update date will cause the beatmap to move to the graveyard again on the next day after the update.
+        /// Updating the creator name is important in cases of name changes, especially ones with username history scrubbed.
         /// </summary>
         public static Task MarkBeatmapSetUpdatedAsync(this MySqlConnection db, osu_beatmapset beatmapset, MySqlTransaction? transaction = null)
         {
-            return db.ExecuteAsync("UPDATE `osu_beatmapsets` SET `last_update` = CURRENT_TIMESTAMP WHERE `beatmapset_id` = @beatmapset_id", beatmapset, transaction);
+            return db.ExecuteAsync("UPDATE `osu_beatmapsets` SET `last_update` = CURRENT_TIMESTAMP, `creator` = @creator WHERE `beatmapset_id` = @beatmapset_id", beatmapset, transaction);
         }
 
         public static async Task<ulong> InsertBeatmapsetFileAsync(this MySqlConnection db, beatmapset_file file, MySqlTransaction? transaction = null)

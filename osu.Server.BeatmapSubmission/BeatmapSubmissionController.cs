@@ -404,7 +404,8 @@ namespace osu.Server.BeatmapSubmission
         private async Task<bool> updateBeatmapSetFromArchiveAsync(osu_beatmapset beatmapSet, Stream beatmapStream, MySqlConnection db)
         {
             using var archiveReader = new ZipArchiveReader(beatmapStream);
-            var parser = new BeatmapPackageParser(await db.GetUsernameAsync(beatmapSet.user_id));
+            string username = await db.GetUsernameAsync(beatmapSet.user_id);
+            var parser = new BeatmapPackageParser(username);
             var parseResult = parser.Parse(beatmapSet.beatmapset_id, archiveReader);
 
             checkPackageSize(beatmapStream.Length, parseResult);
@@ -421,6 +422,7 @@ namespace osu.Server.BeatmapSubmission
 
                 if (fileSet.SetEquals(parseResult.Files))
                 {
+                    beatmapSet.creator = username;
                     await db.MarkBeatmapSetUpdatedAsync(beatmapSet, transaction);
                     await transaction.CommitAsync();
                     return false;
@@ -454,6 +456,7 @@ namespace osu.Server.BeatmapSubmission
             if (beatmapIds.Count > 0)
                 throw new InvariantException($"Beatmap package is missing .osu files for beatmaps with IDs: {string.Join(", ", beatmapIds)}", LogLevel.Warning);
 
+            parseResult.BeatmapSet.creator = username;
             await db.UpdateBeatmapSetAsync(parseResult.BeatmapSet, transaction);
 
             await transaction.CommitAsync();
