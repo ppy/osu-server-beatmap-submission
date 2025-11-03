@@ -32,5 +32,32 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             Assert.False(success);
         }
+
+        [Fact]
+        public void TestObjectCounts()
+        {
+            var beatmap = new osu_beatmap
+            {
+                beatmap_id = 100000,
+                filename = "100000.osu",
+                checksum = "deadbeef",
+                version = "a version",
+                diff_drain = 5,
+                diff_size = 5,
+                diff_overall = 5,
+                diff_approach = 5,
+                bpm = 120,
+                countNormal = ushort.MaxValue + 1,
+                countSlider = ushort.MaxValue + 1,
+                countSpinner = ushort.MaxValue + 1,
+                playmode = 1,
+            };
+
+            var errors = new List<ValidationResult>();
+            bool success = Validator.TryValidateObject(beatmap, new ValidationContext(beatmap), errors, validateAllProperties: true);
+
+            Assert.False(success);
+            Assert.Equal(3, errors.Count);
+        }
     }
 }
