@@ -690,8 +690,11 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal("Soleily - Renatus (test) [Hard].osu", osuBeatmap.filename);
             Assert.Equal("30ae41c14d211ea5cdc128e347573a9a", osuBeatmap.checksum);
             Assert.Equal("Hard", osuBeatmap.version);
-            Assert.Equal(208u, osuBeatmap.total_length); // off by 1 compared to osu-web, but doesn't seem worth investigating
-            Assert.Equal(190u, osuBeatmap.hit_length); // off by 1 compared to osu-web, but doesn't seem worth investigating
+            // osu-web-10 calculates `total_length = 207` which is wrong
+            // because it doesn't account for how spinner end time is encoded in its half-hearted beatmap parsing
+            Assert.Equal(210u, osuBeatmap.total_length);
+            // osu-web-10 calculates 189, but this discrepancy doesn't seem worth investigating
+            Assert.Equal(190u, osuBeatmap.hit_length);
             Assert.Equal(558u, osuBeatmap.countTotal);
             Assert.Equal(160u, osuBeatmap.countNormal);
             Assert.Equal(396u, osuBeatmap.countSlider);
@@ -707,8 +710,10 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.Equal("Soleily - Renatus (test) [Hyper].osu", maniaBeatmap.filename);
             Assert.Equal("3c4ac5fe3ed0abe7ee9eb000d4d06ebc", maniaBeatmap.checksum);
             Assert.Equal("Hyper", maniaBeatmap.version);
-            Assert.Equal(226u, maniaBeatmap.total_length); // off by 2 compared to osu-web, but doesn't seem worth investigating
-            Assert.Equal(226u, maniaBeatmap.hit_length); // off by 1 compared to osu-web, but doesn't seem worth investigating
+            // osu-web-10 calculates 228
+            Assert.Equal(228u, maniaBeatmap.total_length);
+            // osu-web-10 calculates 227, but this discrepancy doesn't seem worth investigating
+            Assert.Equal(226u, maniaBeatmap.hit_length);
             Assert.Equal(1706u, maniaBeatmap.countTotal);
             Assert.Equal(1657u, maniaBeatmap.countNormal);
             Assert.Equal(49u, maniaBeatmap.countSlider);
