@@ -175,6 +175,7 @@ namespace osu.Server.BeatmapSubmission.Services
         public osu_beatmap GetDatabaseRow()
         {
             float beatLength = (float)Beatmap.GetMostCommonBeatLength();
+            var (_, endTime) = Beatmap.CalculatePlayableBounds();
 
             var result = new osu_beatmap
             {
@@ -187,7 +188,7 @@ namespace osu.Server.BeatmapSubmission.Services
                 diff_overall = Beatmap.Difficulty.OverallDifficulty,
                 diff_approach = Beatmap.Difficulty.ApproachRate,
                 bpm = beatLength > 0 ? 60000 / beatLength : 0,
-                total_length = (uint)(Beatmap.CalculatePlayableLength() / 1000),
+                total_length = (uint)Math.Ceiling(endTime / 1000),
                 hit_length = (uint)(Beatmap.CalculateDrainLength() / 1000),
                 playmode = (ushort)Beatmap.BeatmapInfo.Ruleset.OnlineID,
             };
