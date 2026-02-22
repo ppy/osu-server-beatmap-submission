@@ -24,7 +24,11 @@ namespace osu.Server.BeatmapSubmission.Services
 
             foreach (var mirror in mirrors)
             {
-                if (await performMirrorAction(mirror, "purge", new Dictionary<string, string> { ["s"] = beatmapSetId.ToString() }) != "1")
+                // A mirror being disabled (ie `enabled == 0`) denotes that it is currently not responding.
+                // This flag is automatically handled and updated by a heartbeat service.
+                //
+                // Disabled or erroring mirrors can still handle purges via a database "queue".
+                if (!mirror.enabled || await performMirrorAction(mirror, "purge", new Dictionary<string, string> { ["s"] = beatmapSetId.ToString() }) != "1")
                     await db.MarkPendingPurgeAsync(mirror, beatmapSetId);
             }
         }
