@@ -8,6 +8,7 @@ namespace osu.Server.BeatmapSubmission.Models.Database
     public class osu_mirror
     {
         public ushort mirror_id { get; set; }
+        public bool enabled { get; set; }
         public string base_url { get; set; } = string.Empty;
         public decimal version { get; set; }
         public bool perform_updates { get; set; }
