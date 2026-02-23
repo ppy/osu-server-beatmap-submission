@@ -34,13 +34,13 @@ namespace osu.Server.BeatmapSubmission.Models.Database
         [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap has too many objects.")]
         public uint countTotal { get; set; }
 
-        [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap has too many objects.")]
+        [Range(typeof(uint), "0", "65535", ErrorMessage = "The beatmap has too many objects.")]
         public uint countNormal { get; set; }
 
-        [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap has too many objects.")]
+        [Range(typeof(uint), "0", "65535", ErrorMessage = "The beatmap has too many objects.")]
         public uint countSlider { get; set; }
 
-        [Range(typeof(uint), "0", "16777215", ErrorMessage = "The beatmap has too many objects.")]
+        [Range(typeof(uint), "0", "65535", ErrorMessage = "The beatmap has too many objects.")]
         public uint countSpinner { get; set; }
 
         [Range(0.0, 10.0, ErrorMessage = "The drain rate of the beatmap is out of range.")]
