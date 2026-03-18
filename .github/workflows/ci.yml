@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install .NET 8.0.x
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
 
@@ -42,7 +42,7 @@ jobs:
           exit $exit_code
 
       - name: InspectCode
-        uses: JetBrains/ReSharper-InspectCode@v0.8
+        uses: JetBrains/ReSharper-InspectCode@v0.11
         with:
           build: true
           solution: ./osu-server-beatmap-submission.sln
@@ -54,10 +54,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install .NET 8.0.x
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
 
