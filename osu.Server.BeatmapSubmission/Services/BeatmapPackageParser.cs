@@ -19,7 +19,7 @@ namespace osu.Server.BeatmapSubmission.Services
 {
     public class BeatmapPackageParser
     {
-        public static readonly HashSet<string> VALID_EXTENSIONS = new HashSet<string>([..SupportedExtensions.ALL_EXTENSIONS, @".osu", @".osb"], StringComparer.OrdinalIgnoreCase);
+        public static readonly HashSet<string> VALID_EXTENSIONS = new HashSet<string>([.. SupportedExtensions.ALL_EXTENSIONS, @".osu", @".osb"], StringComparer.OrdinalIgnoreCase);
 
         private readonly string expectedCreator;
 
@@ -149,10 +149,8 @@ namespace osu.Server.BeatmapSubmission.Services
                 var storyboard = storyboardDecoder.Decode(new LineBufferedReader(storyboardStream));
 
                 if (storyboard.Layers.Any(l => l.Elements.Any(elem => elem.GetType() == typeof(StoryboardSprite) || elem.GetType() == typeof(StoryboardAnimation))))
-                {
                     result.storyboard = true;
-                    result.storyboard_hash = storyboardStream.ComputeMD5Hash();
-                }
+                result.storyboard_hash = storyboardStream.ComputeMD5Hash();
             }
 
             return result;
