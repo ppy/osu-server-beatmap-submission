@@ -294,6 +294,9 @@ namespace osu.Server.BeatmapSubmission
             if (filesChanged.Any(f => SanityCheckHelpers.IncursPathTraversalRisk(f.FileName)))
                 throw new InvariantException("Invalid filename detected", LogLevel.Warning);
 
+            if (filesDeleted.Any(SanityCheckHelpers.IncursPathTraversalRisk))
+                throw new InvariantException("Invalid filename detected", LogLevel.Warning);
+
             var beatmapStream = await patcher.PatchBeatmapSetAsync(beatmapSetId, filesChanged, filesDeleted);
 
             if (await updateBeatmapSetFromArchiveAsync(beatmapSet, beatmapStream, db))

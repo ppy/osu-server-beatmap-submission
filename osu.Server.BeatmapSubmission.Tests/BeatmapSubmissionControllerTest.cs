@@ -1069,7 +1069,8 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             // A different beatmap exists with a filename from the upload.
             // Filenames should be unique globally.
-            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `filename`) VALUES (@beatmapId, @filename)", new { beatmapId = 123456, filename = "Soleily - Renatus (test) [Platter].osu" });
+            await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `filename`) VALUES (@beatmapId, @filename)",
+                new { beatmapId = 123456, filename = "Soleily - Renatus (test) [Platter].osu" });
 
             var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
 
@@ -1646,7 +1647,43 @@ namespace osu.Server.BeatmapSubmission.Tests
         [InlineData("..\\suspicious")]
         [InlineData("a/../../../suspicious")]
         [InlineData("b\\..\\..\\..\\suspicious")]
-        public async Task TestPatchPackage_PathTraversalFails(string suspiciousPath)
+        public async Task TestPatchPackage_Deleted_PathTraversalFails(string suspiciousPath)
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync(
+                "INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_permissions`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '', '')");
+
+            await db.ExecuteAsync(
+                @"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            using (var dstStream = File.OpenWrite(Path.Combine(beatmapStorage.BaseDirectory, "241526")))
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+            await db.ExecuteAsync(@"INSERT INTO `beatmapset_versions` (`beatmapset_id`) VALUES (241526)");
+
+            var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
+
+            using var content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("filesDeleted", suspiciousPath),
+            });
+
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+        }
+
+        [Theory]
+        [InlineData("../suspicious")]
+        [InlineData("..\\suspicious")]
+        [InlineData("a/../../../suspicious")]
+        [InlineData("b\\..\\..\\..\\suspicious")]
+        public async Task TestPatchPackage_Changed_PathTraversalFails(string suspiciousPath)
         {
             using var db = await DatabaseAccess.GetConnectionAsync();
             await db.ExecuteAsync(
