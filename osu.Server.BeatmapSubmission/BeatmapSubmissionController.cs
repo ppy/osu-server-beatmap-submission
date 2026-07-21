@@ -127,7 +127,12 @@ namespace osu.Server.BeatmapSubmission
             if (request.BeatmapsToKeep.Except(existingBeatmaps).Any())
                 throw new InvariantException("One of the beatmaps to keep does not belong to the specified set.", LogLevel.Warning);
 
-            uint totalBeatmapCount = (uint)request.BeatmapsToKeep.Length + request.BeatmapsToCreate;
+            uint totalBeatmapCount;
+
+            checked
+            {
+                totalBeatmapCount = (uint)request.BeatmapsToKeep.Length + request.BeatmapsToCreate;
+            }
 
             if (totalBeatmapCount < 1)
                 throw new InvariantException("The beatmap set must contain at least one beatmap.");
@@ -153,10 +158,13 @@ namespace osu.Server.BeatmapSubmission
 
             var beatmapIds = new List<uint>();
 
-            for (int i = 0; i < request.BeatmapsToCreate; ++i)
+            checked
             {
-                uint beatmapId = await db.CreateBlankBeatmapAsync(userId, beatmapSetId.Value, transaction);
-                beatmapIds.Add(beatmapId);
+                for (int i = 0; i < request.BeatmapsToCreate; ++i)
+                {
+                    uint beatmapId = await db.CreateBlankBeatmapAsync(userId, beatmapSetId.Value, transaction);
+                    beatmapIds.Add(beatmapId);
+                }
             }
 
             if (beatmapIds.Count > 0)
