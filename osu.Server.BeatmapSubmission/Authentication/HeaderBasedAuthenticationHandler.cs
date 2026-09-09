@@ -40,7 +40,7 @@ namespace osu.Server.BeatmapSubmission.Authentication
         /// </summary>
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            var nameIdentifierClaim = createNameIdentifierClaim();
+            var nameIdentifierClaim = createUserIdClaim();
 
             var authenticationTicket = new AuthenticationTicket(
                 new ClaimsPrincipal([new ClaimsIdentity([nameIdentifierClaim], AUTH_SCHEME)]),
@@ -49,7 +49,7 @@ namespace osu.Server.BeatmapSubmission.Authentication
             return Task.FromResult(AuthenticateResult.Success(authenticationTicket));
         }
 
-        private Claim createNameIdentifierClaim()
+        private Claim createUserIdClaim()
         {
             string? userIdString = null;
 
@@ -58,8 +58,8 @@ namespace osu.Server.BeatmapSubmission.Authentication
 
             userIdString ??= Interlocked.Increment(ref userIDCounter).ToString();
 
-            var nameIdentifierClaim = new Claim(ClaimTypes.NameIdentifier, userIdString);
-            return nameIdentifierClaim;
+            var userIdClaim = new Claim(AuthenticationExtensions.USER_ID_CLAIM_TYPE, userIdString);
+            return userIdClaim;
         }
     }
 }

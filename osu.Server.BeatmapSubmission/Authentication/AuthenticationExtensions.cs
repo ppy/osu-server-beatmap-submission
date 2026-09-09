@@ -7,12 +7,14 @@ namespace osu.Server.BeatmapSubmission.Authentication
 {
     public static class AuthenticationExtensions
     {
+        public const string USER_ID_CLAIM_TYPE = "osu_user_id";
+
         public static uint GetUserId(this ClaimsPrincipal principal)
         {
-            if (!principal.HasClaim(c => c.Type == ClaimTypes.NameIdentifier))
-                throw new InvalidOperationException($"Provided {nameof(ClaimsPrincipal)} does not have the {nameof(ClaimTypes.NameIdentifier)} claim.");
+            if (!principal.HasClaim(c => c.Type == USER_ID_CLAIM_TYPE))
+                throw new InvalidOperationException($"Provided {nameof(ClaimsPrincipal)} does not have the {USER_ID_CLAIM_TYPE} claim.");
 
-            return uint.Parse(principal.Claims.Single(c => c.Type == ClaimTypes.NameIdentifier).Value);
+            return uint.Parse(principal.Claims.Single(c => c.Type == USER_ID_CLAIM_TYPE).Value);
         }
     }
 }

@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System.Security.Claims;
 using System.Security.Cryptography;
 using Dapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -44,7 +45,6 @@ namespace osu.Server.BeatmapSubmission.Authentication
                 OnTokenValidated = async context =>
                 {
                     var jwtToken = (JsonWebToken)context.SecurityToken;
-                    int tokenUserId = int.Parse(jwtToken.Subject);
 
                     using (var db = await DatabaseAccess.GetConnectionAsync())
                     {
@@ -52,11 +52,16 @@ namespace osu.Server.BeatmapSubmission.Authentication
                         int? userId = await db.QueryFirstOrDefaultAsync<int?>("SELECT `user_id` FROM `oauth_access_tokens` WHERE `revoked` = false AND `expires_at` > now() AND `id` = @id",
                             new { id = jwtToken.Id });
 
-                        if (userId != tokenUserId)
+                        if (userId != null)
                         {
-                            loggerFactory.CreateLogger(nameof(OsuWebSharedJwtBearerOptions)).LogInformation("Token revoked or expired");
-                            context.Fail("Token has expired or been revoked");
+                            var identity = new ClaimsIdentity();
+                            identity.AddClaim(new Claim(AuthenticationExtensions.USER_ID_CLAIM_TYPE, userId.Value.ToString()));
+                            context.Principal!.AddIdentity(identity);
+                            return;
                         }
+
+                        loggerFactory.CreateLogger(nameof(OsuWebSharedJwtBearerOptions)).LogInformation("Token revoked or expired");
+                        context.Fail("Token has expired or been revoked");
                     }
                 },
             };
