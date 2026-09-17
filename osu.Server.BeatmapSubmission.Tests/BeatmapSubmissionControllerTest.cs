@@ -1836,7 +1836,7 @@ namespace osu.Server.BeatmapSubmission.Tests
             var request = new HttpRequestMessage(HttpMethod.Patch, "/beatmapsets/241526");
 
             using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
-            content.Add(new StringContent(
+            content.Add(new StringContent(FormattableString.Invariant(
                 $"""
                  osu file format v14
 
@@ -1863,7 +1863,7 @@ namespace osu.Server.BeatmapSubmission.Tests
                  SliderMultiplier:1.75
                  SliderTickRate:2
                  """
-            ), "filesChanged", osu_filename);
+            )), "filesChanged", osu_filename);
             content.Add(new StringContent("Soleily - Renatus (test) [Platter].osu"), "filesDeleted");
             request.Content = content;
             request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
