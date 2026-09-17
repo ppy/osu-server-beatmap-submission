@@ -3,7 +3,7 @@
 
 namespace osu.Server.BeatmapSubmission
 {
-    public class FormatUtils
+    public static class FormatUtils
     {
         public static string HumaniseSize(double sizeBytes)
         {
