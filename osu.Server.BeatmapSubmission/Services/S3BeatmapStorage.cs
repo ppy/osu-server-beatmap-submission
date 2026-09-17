@@ -40,7 +40,6 @@ namespace osu.Server.BeatmapSubmission.Services
                     RegionEndpoint = RegionEndpoint.GetBySystemName(regionName),
                     UseHttp = true,
                     ForcePathStyle = true,
-                    RetryMode = RequestRetryMode.Legacy,
                     MaxErrorRetry = 5,
                     Timeout = TimeSpan.FromMinutes(1),
                 });

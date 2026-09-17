@@ -1110,9 +1110,9 @@ namespace osu.Server.BeatmapSubmission.Tests
                 await srcStream.CopyToAsync(dstStream);
             dstStream.Seek(0, SeekOrigin.Begin);
 
-            using (var archive = ZipArchive.Open(dstStream))
+            using (var archive = ZipArchive.OpenArchive(dstStream))
             {
-                archive.AddEntry(suspiciousFilename, new MemoryStream("i am doing dodgy stuff"u8.ToArray()));
+                archive.AddEntry(suspiciousFilename, new MemoryStream("i am doing dodgy stuff"u8.ToArray()), true);
                 dstStream = new MemoryStream();
                 archive.SaveTo(dstStream, BeatmapPackagePatcher.DEFAULT_ZIP_WRITER_OPTIONS);
             }
