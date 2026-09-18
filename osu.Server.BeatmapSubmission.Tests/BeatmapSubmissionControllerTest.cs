@@ -1126,6 +1126,45 @@ namespace osu.Server.BeatmapSubmission.Tests
             Assert.False(response.IsSuccessStatusCode);
         }
 
+        [Fact]
+        public async Task TestUploadFullPackage_ZipEntryWithExcessiveSize()
+        {
+            using var db = await DatabaseAccess.GetConnectionAsync();
+            await db.ExecuteAsync(
+                "INSERT INTO `phpbb_users` (`user_id`, `username`, `username_clean`, `country_acronym`, `user_sig`, `user_occ`, `user_interests`) VALUES (1000, 'test', 'test', 'JP', '', '', '')");
+
+            await db.ExecuteAsync(
+                @"INSERT INTO `osu_beatmapsets` (`beatmapset_id`, `user_id`, `creator`, `approved`, `thread_id`, `active`, `submit_date`) VALUES (241526, 1000, 'test user', -1, 0, -1, CURRENT_TIMESTAMP)");
+
+            foreach (uint beatmapId in new uint[] { 557815, 557814, 557821, 557816, 557817, 557818, 557812, 557810, 557811, 557820, 557813, 557819 })
+                await db.ExecuteAsync(@"INSERT INTO `osu_beatmaps` (`beatmap_id`, `user_id`, `beatmapset_id`, `approved`) VALUES (@beatmapId, 1000, 241526, -1)", new { beatmapId = beatmapId });
+
+            var request = new HttpRequestMessage(HttpMethod.Put, "/beatmapsets/241526");
+
+            var dstStream = new MemoryStream();
+            using (var srcStream = TestResources.GetResource(osz_filename)!)
+                await srcStream.CopyToAsync(dstStream);
+            dstStream.Seek(0, SeekOrigin.Begin);
+
+            using (var archive = ZipArchive.OpenArchive(dstStream))
+            {
+                archive.AddEntry("sus.jpg", new MemoryStream(new byte[120 * 1024 * 1024]), true);
+                dstStream = new MemoryStream();
+                archive.SaveTo(dstStream, BeatmapPackagePatcher.DEFAULT_ZIP_WRITER_OPTIONS);
+            }
+
+            using var content = new MultipartFormDataContent($"{Guid.NewGuid()}----");
+            content.Add(new StreamContent(dstStream), "beatmapArchive", osz_filename);
+            request.Content = content;
+            request.Headers.Add(HeaderBasedAuthenticationHandler.USER_ID_HEADER, "1000");
+
+            var response = await Client.SendAsync(request);
+            Assert.False(response.IsSuccessStatusCode);
+            string? error = (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error;
+            Assert.Contains("too large", error);
+            Assert.Contains("sus.jpg", error);
+        }
+
         [Theory]
         [InlineData(50 * 1024 * 1024)]
         [InlineData(200000001)]
