@@ -2486,7 +2486,9 @@ namespace osu.Server.BeatmapSubmission.Tests
 
             var response = await Client.SendAsync(request);
             Assert.False(response.IsSuccessStatusCode);
-            Assert.Contains("The beatmap package is too large.", (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error);
+            string error = (await response.Content.ReadFromJsonAsync<ErrorResponse>())!.Error;
+            Assert.Contains("too large", error);
+            Assert.Contains(osu_filename, error);
         }
 
         [Fact]
