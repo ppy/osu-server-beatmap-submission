@@ -43,7 +43,17 @@ namespace osu.Server.BeatmapSubmission.Services
                 if (SanityCheckHelpers.IncursPathTraversalRisk(filename))
                     throw new InvariantException("Invalid filename detected");
 
-                var stream = archiveReader.GetStream(filename);
+                Stream stream;
+
+                try
+                {
+                    stream = archiveReader.GetStream(filename);
+                }
+                catch (InsufficientMemoryException)
+                {
+                    throw new InvariantException($"File \"{filename}\" is too large.");
+                }
+
                 BeatmapContent? beatmapContent = null;
 
                 if (extension.Equals(".osu", StringComparison.OrdinalIgnoreCase))
