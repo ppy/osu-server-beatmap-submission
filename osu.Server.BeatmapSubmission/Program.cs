@@ -66,17 +66,6 @@ namespace osu.Server.BeatmapSubmission
                     break;
                 }
 
-                case "Staging":
-                {
-                    if (AppSettings.SentryDsn == null)
-                    {
-                        throw new InvalidOperationException("SENTRY_DSN environment variable not set. "
-                                                            + "Please set the value of this variable to a valid Sentry DSN to use for logging events.");
-                    }
-
-                    break;
-                }
-
                 case "Production":
                 {
                     if (AppSettings.SentryDsn == null)
