@@ -9,7 +9,7 @@ on:
 
 env:
   PRODUCTION_TRACK: ${{ (github.ref_type == 'tag' && !contains(github.ref_name, '-') && 'production') || (github.ref_type == 'branch' && github.ref_name == 'master' && 'staging') || '' }}
-  
+
 permissions:
   contents: read # to retrieve and build docker image from source
 
@@ -122,12 +122,12 @@ jobs:
             ${{ env.PRODUCTION_TRACK == 'staging' && format('{{ "values": {{ "osu-server-beatmap-submission": {{ "image": {{ "tag": "{0}" }} }} }} }}', github.sha) || format('{{ "dockerTag": "{0}" }}', github.ref_name) }}
       -
         name: Create Sentry release
+        if: ${{ env.PRODUCTION_TRACK == 'production' }}
         uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # https://github.com/getsentry/action-release/releases/tag/v3.7.0
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ppy
           SENTRY_PROJECT: osu-server-beatmap-submission
-          SENTRY_URL: https://sentry.ppy.sh/
         with:
           environment: ${{ env.PRODUCTION_TRACK }}
           version: osu-server-beatmap-submission@${{ github.ref_type == 'branch' && github.sha || github.ref_type == 'tag' && github.ref_name }}
